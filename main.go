@@ -38,8 +38,8 @@ func main() {
 	h := 50
 	w := 50
 	agentCount := 300
-	infectedCount := 1
-	infectionChance := 1.0
+	infectedCount := 50
+	infectionChance := 0.3
 	infectionDuration := 3
 
 	game := newGame(h, w, agentCount, infectedCount, infectionChance, infectionDuration)
@@ -53,7 +53,7 @@ func main() {
 		}
 		game.step(i)
 		fmt.Print(game.String()) // Clear screen and print field.
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	fmt.Println(game.stats())
