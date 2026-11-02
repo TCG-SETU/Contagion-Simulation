@@ -38,9 +38,9 @@ func main() {
 	h := 50
 	w := 50
 	agentCount := 300
-	infectedCount := 50
-	infectionChance := 0.3
-	infectionDuration := 3
+	infectedCount := 10
+	infectionChance := 0.1
+	infectionDuration := 7
 
 	game := newGame(h, w, agentCount, infectedCount, infectionChance, infectionDuration)
 

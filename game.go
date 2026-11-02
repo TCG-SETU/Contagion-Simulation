@@ -73,15 +73,12 @@ func (g *Game) step(step int) {
 			// Keep agent inside bounds
 			newX, newY = clampBorders(newX, newY, g.w, g.h)
 
-			agent.x = newX
-			agent.y = newY
-
-			//moved := false
 			// Only move agent
 			if newAgents[newX][newY] == nil {
+				agent.x = newX
+				agent.y = newY
 				newAgents[newX][newY] = agent
 				newAgents[x][y] = nil
-				//moved = true
 			}
 
 			if agent.infected {
@@ -91,6 +88,11 @@ func (g *Game) step(step int) {
 				g.checkDirection(newAgents, newX, newY+UP)
 				g.checkDirection(newAgents, newX+RIGHT, newY)
 				g.checkDirection(newAgents, newX, newY+DOWN)
+				// diagonals
+				g.checkDirection(newAgents, newX+LEFT, newY+UP)
+				g.checkDirection(newAgents, newX+RIGHT, newY+UP)
+				g.checkDirection(newAgents, newX+RIGHT, newY+DOWN)
+				g.checkDirection(newAgents, newX+LEFT, newY+DOWN)
 			}
 		}
 	}
