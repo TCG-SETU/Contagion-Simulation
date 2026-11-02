@@ -130,6 +130,10 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	for range agentCount {
 		randX := rand.Intn(width)
 		randY := rand.Intn(height)
+		for agents[randX][randY] != nil {
+			randX = rand.Intn(width)
+			randY = rand.Intn(height)
+		}
 		newAgent := Agent{randX, randY, false, 0}
 
 		if infectedCount != 0 {
