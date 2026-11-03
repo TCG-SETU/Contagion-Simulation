@@ -4,6 +4,12 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
+	"golang.org/x/image/colornames"
 )
 
 const (
@@ -11,6 +17,11 @@ const (
 	DOWN  = 1
 	RIGHT = 1
 	LEFT  = -1
+)
+
+const (
+	screenWidth  = 400
+	screenHeight = 400
 )
 
 type Game struct {
@@ -21,11 +32,12 @@ type Game struct {
 	h, w              int
 	infectionChance   float64
 	infectionDuration int
+	iteration         int
+	lastStepTime      time.Time
+	stepDelay         int
 }
 
-func (g *Game) step(step int) {
-	fmt.Printf("Game %d steps\n", step)
-
+func (g *Game) step() {
 	newAgents := g.agents
 
 	for x := 0; x < g.w; x++ {
@@ -97,8 +109,6 @@ func (g *Game) step(step int) {
 		}
 	}
 
-	fmt.Printf("%d infected\n", g.infectedCountNow)
-
 	g.agents = newAgents
 }
 
@@ -116,6 +126,50 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 		target.infected = true
 		g.infectedCountNow++
 	}
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+
+	screen.Clear()
+	gridOffset := 50
+
+	// Draw the agents to the screen
+	for _, agent := range g.agents {
+		for _, agentState := range agent {
+			if agentState != nil {
+				if agentState.infected {
+					vector.FillCircle(screen, float32(agentState.x*2+gridOffset), float32(agentState.y*2+gridOffset), 2, colornames.Red, true)
+				} else {
+					vector.FillCircle(screen, float32(agentState.x*2+gridOffset), float32(agentState.y*2+gridOffset), 2, colornames.Green, true)
+				}
+			}
+		}
+	}
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f", ebiten.ActualTPS(), ebiten.ActualFPS()))
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\nStep: %d", g.iteration))
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\n\nInfected: %d", g.infectedCountNow))
+
+	if g.infectedCountNow == 0 {
+		ebitenutil.DebugPrint(screen, "\n\n\n\nDone!")
+	}
+}
+
+func (g *Game) Layout(int, int) (int, int) {
+	return screenWidth, screenHeight
+}
+
+func (g *Game) Update() error {
+	if g.infectedCountNow == 0 {
+		return nil
+	}
+	g.stepDelay--
+	if g.stepDelay == 0 {
+		g.step()
+		g.lastStepTime = time.Now()
+		g.iteration++
+		g.stepDelay = 5
+	}
+	return nil
 }
 
 func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int) *Game {
@@ -150,9 +204,10 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	g.infectionChance = infectionChance
 	g.agentsCount = agentCount
 	g.infectionDuration = infectionDuration
+	g.lastStepTime = time.Now()
+	g.stepDelay = 5
 	return &g
 }
-
 func (g *Game) String() string {
 	var str strings.Builder
 	for i := range g.w {
@@ -171,7 +226,6 @@ func (g *Game) String() string {
 	}
 	return str.String()
 }
-
 func (g *Game) stats() string {
 
 	endAgents := 0
@@ -192,7 +246,6 @@ func (g *Game) stats() string {
 		g.w, g.h, g.agentsCount, g.infectedCount, g.infectionChance, g.infectionDuration, endAgents, endInfected)
 
 }
-
 func (g *Game) find(x, y int) (int, int, bool) {
 	minDist := 99
 	targetX, targetY := -1, -1

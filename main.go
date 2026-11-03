@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/hajimehoshi/ebiten/v2"
 	"log"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 func clamp(a, min, max int) int {
@@ -32,14 +33,13 @@ func locationToDirection(a, b, positive, negative int) int {
 	return val
 }
 
-
 func main() {
 
 	w := 150
 	h := 150
-	agentCount := 400
+	agentCount := 800
 	infectedCount := 100
-	infectionChance := 0.5
+	infectionChance := 0.8
 	infectionDuration := 40
 
 	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration)

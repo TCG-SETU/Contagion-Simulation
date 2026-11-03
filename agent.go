@@ -8,7 +8,7 @@ type Agent struct {
 
 func (a *Agent) handleInfectionTimer(g *Game) {
 	a.infectionTimer--
-	if a.infectionTimer == 0 {
+	if a.infectionTimer <= 0 {
 		a.infected = false
 		g.infectedCountNow--
 	}
