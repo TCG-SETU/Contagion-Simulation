@@ -37,10 +37,10 @@ func main() {
 
 	w := 150
 	h := 150
-	agentCount := 800
+	agentCount := 1200
 	infectedCount := 100
-	infectionChance := 0.8
-	infectionDuration := 40
+	infectionChance := 0.5
+	infectionDuration := 20
 
 	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration)
 

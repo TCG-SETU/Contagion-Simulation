@@ -1,5 +1,13 @@
 package main
 
+import (
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
+	"golang.org/x/image/colornames"
+)
+
 type Agent struct {
 	x, y           int
 	infected       bool
@@ -12,4 +20,18 @@ func (a *Agent) handleInfectionTimer(g *Game) {
 		a.infected = false
 		g.infectedCountNow--
 	}
+}
+
+func (a *Agent) draw(screen *ebiten.Image) {
+	gridOffset := 50
+
+	colour := color.RGBA{}
+	if a.infected {
+		colour = colornames.Red
+	} else {
+		colour = colornames.Green
+	}
+
+	vector.DrawFilledRect(screen, float32(a.x*2+gridOffset), float32(a.y*2+gridOffset), 2, 2, colour, true)
+
 }

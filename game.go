@@ -8,8 +8,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
-	"golang.org/x/image/colornames"
 )
 
 const (
@@ -94,7 +92,6 @@ func (g *Game) step() {
 			}
 
 			if agent.infected {
-				agent.handleInfectionTimer(g)
 				// check up down left right
 				g.checkDirection(newAgents, newX+LEFT, newY)
 				g.checkDirection(newAgents, newX, newY+UP)
@@ -105,6 +102,7 @@ func (g *Game) step() {
 				g.checkDirection(newAgents, newX+RIGHT, newY+UP)
 				g.checkDirection(newAgents, newX+RIGHT, newY+DOWN)
 				g.checkDirection(newAgents, newX+LEFT, newY+DOWN)
+				agent.handleInfectionTimer(g)
 			}
 		}
 	}
@@ -124,6 +122,7 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 	shouldInfect := rand.Float64() < g.infectionChance
 	if shouldInfect {
 		target.infected = true
+		target.infectionTimer = g.infectionDuration
 		g.infectedCountNow++
 	}
 }
@@ -131,17 +130,12 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	screen.Clear()
-	gridOffset := 50
 
 	// Draw the agents to the screen
 	for _, agent := range g.agents {
 		for _, agentState := range agent {
 			if agentState != nil {
-				if agentState.infected {
-					vector.FillCircle(screen, float32(agentState.x*2+gridOffset), float32(agentState.y*2+gridOffset), 2, colornames.Red, true)
-				} else {
-					vector.FillCircle(screen, float32(agentState.x*2+gridOffset), float32(agentState.y*2+gridOffset), 2, colornames.Green, true)
-				}
+				agentState.draw(screen)
 			}
 		}
 	}
@@ -150,7 +144,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\n\nInfected: %d", g.infectedCountNow))
 
 	if g.infectedCountNow == 0 {
-		ebitenutil.DebugPrint(screen, "\n\n\n\nDone!")
+		ebitenutil.DebugPrint(screen, "\n\n\n\nEveryone is healthy!")
+	}
+	if g.infectedCountNow == g.agentsCount {
+		ebitenutil.DebugPrint(screen, "\n\n\n\nEveryone is infected!")
+
 	}
 }
 
@@ -159,7 +157,7 @@ func (g *Game) Layout(int, int) (int, int) {
 }
 
 func (g *Game) Update() error {
-	if g.infectedCountNow == 0 {
+	if g.infectedCountNow == 0 || g.infectedCountNow == g.agentsCount {
 		return nil
 	}
 	g.stepDelay--
@@ -167,7 +165,7 @@ func (g *Game) Update() error {
 		g.step()
 		g.lastStepTime = time.Now()
 		g.iteration++
-		g.stepDelay = 5
+		g.stepDelay = 1
 	}
 	return nil
 }
@@ -184,6 +182,10 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	for range agentCount {
 		randX := rand.Intn(width)
 		randY := rand.Intn(height)
+		for agents[randX][randY] != nil {
+			randX = rand.Intn(width)
+			randY = rand.Intn(height)
+		}
 		newAgent := Agent{randX, randY, false, 0}
 
 		if infectedCount != 0 {
