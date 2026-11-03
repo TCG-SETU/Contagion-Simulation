@@ -32,6 +32,6 @@ func (a *Agent) draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.DrawFilledRect(screen, float32(a.x*2+gridOffset), float32(a.y*2+gridOffset), 2, 2, colour, true)
+	vector.StrokeRect(screen, float32(a.x*2+gridOffset), float32(a.y*2+gridOffset), 1, 1, 2, colour, false)
 
 }
