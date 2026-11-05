@@ -36,28 +36,36 @@ type Game struct {
 }
 
 func (g *Game) step() {
-	newAgents := g.agents
 
+	newAgents := make([][]*Agent, g.w)
+	for i := range newAgents {
+		newAgents[i] = make([]*Agent, g.w)
+	}
+	for x := 0; x < g.w; x++ {
+		for y := 0; y < g.h; y++ {
+			if g.agents[x][y] != nil {
+				newAgents[x][y] = g.agents[x][y]
+			}
+		}
+	}
 	for x := 0; x < g.w; x++ {
 		for y := 0; y < g.h; y++ {
 			agent := g.agents[x][y]
-
 			if agent == nil {
 				continue
 			}
-
 			xStep := rand.Intn(3) - 1
 			yStep := rand.Intn(3) - 1
 
 			if agent.infected {
-				targetX, targetY, found := g.find(agent.x, agent.y)
+				targetX, targetY, found := agent.find(g)
 				if found {
 					xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
 					yStep = locationToDirection(targetY, agent.y, DOWN, UP)
 				}
 			}
 			if !agent.infected {
-				bestMoveX, bestMoveY, found := g.escape(agent.x, agent.y)
+				bestMoveX, bestMoveY, found := agent.escape(g)
 				if found {
 					if bestMoveX > agent.x {
 						xStep = RIGHT
@@ -92,16 +100,13 @@ func (g *Game) step() {
 			}
 
 			if agent.infected {
-				// check up down left right
-				g.checkDirection(newAgents, newX+LEFT, newY)
-				g.checkDirection(newAgents, newX, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY)
-				g.checkDirection(newAgents, newX, newY+DOWN)
-				// diagonals
-				g.checkDirection(newAgents, newX+LEFT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+DOWN)
-				g.checkDirection(newAgents, newX+LEFT, newY+DOWN)
+				for dx := -1; dx <= 1; dx++ {
+					for dy := -1; dy <= 1; dy++ {
+						if dx != 0 || dy != 0 {
+							g.checkDirection(g.agents, agent.x+dx, agent.y+dy)
+						}
+					}
+				}
 				agent.handleInfectionTimer(g)
 			}
 		}
@@ -247,77 +252,4 @@ func (g *Game) stats() string {
 		"Game Stats: Size: {%d, %d}  Agents: %d  Starting-Infected: %d  Infection Rate: %f  Infection Duration: %d \nEnd-Agents: %d End-Infected: %d",
 		g.w, g.h, g.agentsCount, g.infectedCount, g.infectionChance, g.infectionDuration, endAgents, endInfected)
 
-}
-func (g *Game) find(x, y int) (int, int, bool) {
-	minDist := 99
-	targetX, targetY := -1, -1
-	found := false
-
-	for dx := -2; dx <= 2; dx++ {
-		for dy := -2; dy <= 2; dy++ {
-			nx, ny := x+dx, y+dy
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && !target.infected {
-					dist := dx*dx + dy*dy
-					if dist < minDist {
-						minDist = dist
-						targetX, targetY = nx, ny
-						found = true
-					}
-				}
-			}
-		}
-	}
-	return targetX, targetY, found
-
-}
-func (g *Game) escape(x, y int) (int, int, bool) {
-	closestInfectedDist := 999
-	infX, infY := -1, -1
-	foundInfected := false
-
-	scanRadius := 3
-	for dx := -scanRadius; dx <= scanRadius; dx++ {
-		for dy := -scanRadius; dy <= scanRadius; dy++ {
-			nx, ny := x+dx, y+dy
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && target.infected {
-					dist := dx*dx + dy*dy
-					if dist < closestInfectedDist {
-						closestInfectedDist = dist
-						infX, infY = nx, ny
-						foundInfected = true
-					}
-				}
-			}
-		}
-	}
-	if !foundInfected {
-		return x, y, false
-	}
-
-	bestMoveX, bestMoveY := x, y
-	maxDistFromInfected := -1
-
-	for moveDX := -1; moveDX <= 1; moveDX++ {
-		for moveDY := -1; moveDY <= 1; moveDY++ {
-			nx, ny := x+moveDX, y+moveDY
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h {
-				distToInfected := (nx-infX)*(nx-infX) + (ny-infY)*(ny-infY)
-
-				if distToInfected > maxDistFromInfected {
-					maxDistFromInfected = distToInfected
-					bestMoveX, bestMoveY = nx, ny
-				}
-			}
-		}
-	}
-
-	return bestMoveX, bestMoveY, true
 }

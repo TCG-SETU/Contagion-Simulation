@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -32,6 +33,89 @@ func (a *Agent) draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x*2+gridOffset), float32(a.y*2+gridOffset), 1, 1, 2, colour, false)
+	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 1, colour, false)
+
+}
+
+func (a *Agent) escape(g *Game) (int, int, bool) {
+	closestInfectedDist := 999
+	infX, infY := -1, -1
+	foundInfected := false
+
+	scanRadius := 3
+	for dx := -scanRadius; dx <= scanRadius; dx++ {
+		for dy := -scanRadius; dy <= scanRadius; dy++ {
+			nx, ny := a.x+dx, a.y+dy
+			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
+				target := g.agents[nx][ny]
+
+				if target != nil && target.infected {
+					dist := dx*dx + dy*dy
+					if dist < closestInfectedDist {
+						closestInfectedDist = dist
+						infX, infY = nx, ny
+						foundInfected = true
+					}
+				}
+			}
+		}
+	}
+	if !foundInfected {
+		return a.x, a.y, false
+	}
+
+	bestMoveX, bestMoveY := a.x, a.y
+	maxDistFromInfected := -1
+
+	for moveDX := -1; moveDX <= 1; moveDX++ {
+		for moveDY := -1; moveDY <= 1; moveDY++ {
+			nx, ny := a.x+moveDX, a.y+moveDY
+
+			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h {
+				distToInfected := (nx-infX)*(nx-infX) + (ny-infY)*(ny-infY)
+
+				if distToInfected > maxDistFromInfected {
+					maxDistFromInfected = distToInfected
+					bestMoveX, bestMoveY = nx, ny
+				}
+			}
+		}
+	}
+
+	return bestMoveX, bestMoveY, true
+}
+
+func (a *Agent) find(g *Game) (int, int, bool) {
+	minDist := 99
+	targetX, targetY := -1, -1
+	found := false
+
+	foundList := make([]struct{ x, y int }, 0)
+	for dx := -2; dx <= 2; dx++ {
+		for dy := -2; dy <= 2; dy++ {
+			nx, ny := a.x+dx, a.y+dy
+
+			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
+				target := g.agents[nx][ny]
+
+				if target != nil && !target.infected {
+					foundList = append(foundList, struct{ x, y int }{nx, ny})
+				}
+			}
+		}
+	}
+
+	if len(foundList) > 0 {
+		index := rand.Intn(len(foundList))
+		t := foundList[index]
+		dist := t.x*t.x + t.y*t.y
+		if dist < minDist {
+			minDist = dist
+			targetX, targetY = a.x+t.x, a.y+t.y
+			found = true
+		}
+
+	}
+	return targetX, targetY, found
 
 }

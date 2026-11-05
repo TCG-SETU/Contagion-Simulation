@@ -35,12 +35,12 @@ func locationToDirection(a, b, positive, negative int) int {
 
 func main() {
 
-	w := 150
-	h := 150
-	agentCount := 1200
-	infectedCount := 100
-	infectionChance := 0.5
-	infectionDuration := 20
+	w := 300
+	h := 300
+	agentCount := 2000
+	infectedCount := 400
+	infectionChance := 0.8
+	infectionDuration := 200
 
 	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration)
 
