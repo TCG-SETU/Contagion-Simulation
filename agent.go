@@ -9,9 +9,10 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+type HealthState int
+
 const (
-	state = iota
-	StateHealthy
+	StateHealthy HealthState = iota
 	StateInfected
 	StateImmune
 	StateDead
@@ -19,7 +20,7 @@ const (
 
 type Agent struct {
 	x, y           int
-	state          int
+	state          HealthState
 	timesInfected  int
 	infectionTimer int
 }
