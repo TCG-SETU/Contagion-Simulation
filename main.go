@@ -35,14 +35,14 @@ func locationToDirection(a, b, positive, negative int) int {
 
 func main() {
 
-	w := 300
-	h := 300
-	agentCount := 2000
-	infectedCount := 400
+	w, h := 400, 400
+	agentCount := 5000
+	infectedCount := 300
 	infectionChance := 0.8
-	infectionDuration := 200
+	infectionDuration := 50
+	deathChance := 0.001
 
-	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration)
+	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration, deathChance)
 
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
 	ebiten.SetWindowTitle("Contagion")

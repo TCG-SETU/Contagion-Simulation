@@ -18,8 +18,8 @@ const (
 )
 
 const (
-	screenWidth  = 400
-	screenHeight = 400
+	screenWidth  = 600
+	screenHeight = 500
 )
 
 type Game struct {
@@ -33,6 +33,7 @@ type Game struct {
 	iteration         int
 	lastStepTime      time.Time
 	stepDelay         int
+	deathChance       float64
 }
 
 func (g *Game) step() {
@@ -51,20 +52,20 @@ func (g *Game) step() {
 	for x := 0; x < g.w; x++ {
 		for y := 0; y < g.h; y++ {
 			agent := g.agents[x][y]
-			if agent == nil {
+			if agent == nil || agent.state == StateDead {
 				continue
 			}
 			xStep := rand.Intn(3) - 1
 			yStep := rand.Intn(3) - 1
 
-			if agent.infected {
+			if agent.isInfected() {
 				targetX, targetY, found := agent.find(g)
 				if found {
 					xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
 					yStep = locationToDirection(targetY, agent.y, DOWN, UP)
 				}
 			}
-			if !agent.infected {
+			if agent.state == StateHealthy {
 				bestMoveX, bestMoveY, found := agent.escape(g)
 				if found {
 					if bestMoveX > agent.x {
@@ -99,7 +100,7 @@ func (g *Game) step() {
 				newAgents[x][y] = nil
 			}
 
-			if agent.infected {
+			if agent.isInfected() {
 				for dx := -1; dx <= 1; dx++ {
 					for dy := -1; dy <= 1; dy++ {
 						if dx != 0 || dy != 0 {
@@ -121,12 +122,12 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 	}
 
 	target := newAgents[x][y]
-	if target == nil || target.infected {
+	if target == nil || target.state != StateHealthy {
 		return
 	}
 	shouldInfect := rand.Float64() < g.infectionChance
 	if shouldInfect {
-		target.infected = true
+		target.state = StateInfected
 		target.infectionTimer = g.infectionDuration
 		g.infectedCountNow++
 	}
@@ -135,6 +136,7 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	screen.Clear()
+	//screen.Fill(colornames.White)
 
 	// Draw the agents to the screen
 	for _, agent := range g.agents {
@@ -175,7 +177,7 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int) *Game {
+func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int, deathChance float64) *Game {
 	g := Game{}
 	agents := make([][]*Agent, width)
 	for i := range width {
@@ -191,16 +193,16 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 			randX = rand.Intn(width)
 			randY = rand.Intn(height)
 		}
-		newAgent := Agent{randX, randY, false, 0}
+		newAgent := Agent{randX, randY, StateHealthy, 0, 0}
 
 		if infectedCount != 0 {
-			newAgent.infected = true
+			newAgent.state = StateInfected
 			newAgent.infectionTimer = infectionDuration
+			newAgent.timesInfected = 1
 			g.infectedCountNow++
 			infectedCount--
-		} else {
-			newAgent.infected = false
 		}
+
 		agents[randX][randY] = &newAgent
 
 	}
@@ -213,6 +215,7 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	g.infectionDuration = infectionDuration
 	g.lastStepTime = time.Now()
 	g.stepDelay = 5
+	g.deathChance = deathChance
 	return &g
 }
 func (g *Game) String() string {
@@ -222,7 +225,7 @@ func (g *Game) String() string {
 			if g.agents[i][j] == nil {
 				str.WriteString("  ")
 			} else {
-				if g.agents[i][j].infected {
+				if g.agents[i][j].isInfected() {
 					str.WriteString(fmt.Sprintf("X "))
 				} else {
 					str.WriteString(fmt.Sprintf("O "))
@@ -241,7 +244,7 @@ func (g *Game) stats() string {
 		for j := 0; j < g.h; j++ {
 			if g.agents[i][j] != nil {
 				endAgents++
-				if g.agents[i][j].infected {
+				if g.agents[i][j].isInfected() {
 					endInfected++
 				}
 			}

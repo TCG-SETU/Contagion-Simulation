@@ -9,16 +9,37 @@ import (
 	"golang.org/x/image/colornames"
 )
 
+const (
+	state = iota
+	StateHealthy
+	StateInfected
+	StateImmune
+	StateDead
+)
+
 type Agent struct {
 	x, y           int
-	infected       bool
+	state          int
+	timesInfected  int
 	infectionTimer int
 }
 
 func (a *Agent) handleInfectionTimer(g *Game) {
+	// Role death check
+	chance := rand.Float64()
+	if chance < g.deathChance {
+		a.state = StateDead
+		g.infectedCountNow--
+		return
+	}
 	a.infectionTimer--
 	if a.infectionTimer <= 0 {
-		a.infected = false
+		a.timesInfected++
+		if a.timesInfected >= 5 {
+			a.state = StateImmune
+		} else {
+			a.state = StateHealthy
+		}
 		g.infectedCountNow--
 	}
 }
@@ -27,14 +48,22 @@ func (a *Agent) draw(screen *ebiten.Image) {
 	gridOffset := 50
 
 	colour := color.RGBA{}
-	if a.infected {
+	if a.state == StateInfected {
 		colour = colornames.Red
+	} else if a.state == StateDead {
+		colour = colornames.Darkgrey
+	} else if a.state == StateImmune {
+		colour = colornames.Cyan
 	} else {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 1, colour, false)
+	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 0.5, colour, true)
 
+}
+
+func (a *Agent) isInfected() bool {
+	return a.state == StateInfected
 }
 
 func (a *Agent) escape(g *Game) (int, int, bool) {
@@ -49,7 +78,7 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
 				target := g.agents[nx][ny]
 
-				if target != nil && target.infected {
+				if target != nil && target.state == StateHealthy {
 					dist := dx*dx + dy*dy
 					if dist < closestInfectedDist {
 						closestInfectedDist = dist
@@ -98,7 +127,7 @@ func (a *Agent) find(g *Game) (int, int, bool) {
 			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
 				target := g.agents[nx][ny]
 
-				if target != nil && !target.infected {
+				if target != nil && target.state == StateHealthy {
 					foundList = append(foundList, struct{ x, y int }{nx, ny})
 				}
 			}
