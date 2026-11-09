@@ -218,6 +218,7 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	g.deathChance = deathChance
 	return &g
 }
+
 func (g *Game) String() string {
 	var str strings.Builder
 	for i := range g.w {
@@ -236,6 +237,7 @@ func (g *Game) String() string {
 	}
 	return str.String()
 }
+
 func (g *Game) stats() string {
 
 	endAgents := 0
