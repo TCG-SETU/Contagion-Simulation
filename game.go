@@ -8,6 +8,14 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+)
+
+type GameState int
+
+const (
+	simulationState GameState = iota
+	pauseState
 )
 
 const (
@@ -23,7 +31,8 @@ const (
 )
 
 type Game struct {
-	agents            [][]*Agent
+	grid              [][]*Agent
+	agents            []*Agent
 	agentsCount       int
 	infectedCount     int
 	infectedCountNow  int
@@ -34,86 +43,77 @@ type Game struct {
 	lastStepTime      time.Time
 	stepDelay         int
 	deathChance       float64
+	gameState         GameState
 }
 
 func (g *Game) step() {
 
-	newAgents := make([][]*Agent, g.w)
-	for i := range newAgents {
-		newAgents[i] = make([]*Agent, g.w)
-	}
-	for x := 0; x < g.w; x++ {
-		for y := 0; y < g.h; y++ {
-			if g.agents[x][y] != nil {
-				newAgents[x][y] = g.agents[x][y]
+	rand.Shuffle(len(g.agents), func(i, j int) { g.agents[i], g.agents[j] = g.agents[j], g.agents[i] })
+
+	for _, agent := range g.agents {
+		if agent == nil || agent.state == StateDead {
+			continue
+		}
+
+		xStep := rand.Intn(3) - 1
+		yStep := rand.Intn(3) - 1
+
+		if agent.isInfected() {
+			targetX, targetY, found := agent.find(g)
+			if found {
+				xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
+				yStep = locationToDirection(targetY, agent.y, DOWN, UP)
 			}
 		}
-	}
-	for x := 0; x < g.w; x++ {
-		for y := 0; y < g.h; y++ {
-			agent := g.agents[x][y]
-			if agent == nil || agent.state == StateDead {
-				continue
-			}
-			xStep := rand.Intn(3) - 1
-			yStep := rand.Intn(3) - 1
-
-			if agent.isInfected() {
-				targetX, targetY, found := agent.find(g)
-				if found {
-					xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
-					yStep = locationToDirection(targetY, agent.y, DOWN, UP)
+		if agent.state == StateHealthy {
+			bestMoveX, bestMoveY, found := agent.escape(g)
+			if found {
+				if bestMoveX > agent.x {
+					xStep = RIGHT
+				} else if bestMoveX < agent.x {
+					xStep = LEFT
+				} else {
+					xStep = 0
 				}
-			}
-			if agent.state == StateHealthy {
-				bestMoveX, bestMoveY, found := agent.escape(g)
-				if found {
-					if bestMoveX > agent.x {
-						xStep = RIGHT
-					} else if bestMoveX < agent.x {
-						xStep = LEFT
-					} else {
-						xStep = 0
-					}
 
-					if bestMoveY > agent.y {
-						yStep = DOWN
-					} else if bestMoveY < agent.y {
-						yStep = UP
-					} else {
-						yStep = 0
-					}
+				if bestMoveY > agent.y {
+					yStep = DOWN
+				} else if bestMoveY < agent.y {
+					yStep = UP
+				} else {
+					yStep = 0
 				}
-			}
-
-			newX := agent.x + xStep
-			newY := agent.y + yStep
-
-			// Keep agent inside bounds
-			newX, newY = clampBorders(newX, newY, g.w, g.h)
-
-			// Only move agent
-			if newAgents[newX][newY] == nil {
-				agent.x = newX
-				agent.y = newY
-				newAgents[newX][newY] = agent
-				newAgents[x][y] = nil
-			}
-
-			if agent.isInfected() {
-				for dx := -1; dx <= 1; dx++ {
-					for dy := -1; dy <= 1; dy++ {
-						if dx != 0 || dy != 0 {
-							g.checkDirection(g.agents, agent.x+dx, agent.y+dy)
-						}
-					}
-				}
-				agent.handleInfectionTimer(g)
 			}
 		}
-	}
 
-	g.agents = newAgents
+		oldX, oldY := agent.x, agent.y
+		newX := agent.x + xStep
+		newY := agent.y + yStep
+
+		// Keep agent inside bounds
+		newX, newY = clampBorders(newX, newY, g.w, g.h)
+
+		// Only move agent
+		if g.grid[newX][newY] == nil {
+			agent.x = newX
+			agent.y = newY
+			g.grid[newX][newY] = agent
+			g.grid[oldX][oldY] = nil
+		}
+
+		if agent.isInfected() {
+			for dx := -1; dx <= 1; dx++ {
+				for dy := -1; dy <= 1; dy++ {
+					if dx != 0 || dy != 0 {
+						g.checkDirection(g.grid, agent.x+dx, agent.y+dy)
+					}
+				}
+			}
+			agent.handleInfectionTimer(g)
+		}
+	}
+	g.lastStepTime = time.Now()
+	g.iteration++
 }
 
 func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
@@ -140,11 +140,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Draw the agents to the screen
 	for _, agent := range g.agents {
-		for _, agentState := range agent {
-			if agentState != nil {
-				agentState.draw(screen)
-			}
-		}
+		agent.draw(screen)
 	}
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f", ebiten.ActualTPS(), ebiten.ActualFPS()))
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\nStep: %d", g.iteration))
@@ -164,32 +160,44 @@ func (g *Game) Layout(int, int) (int, int) {
 }
 
 func (g *Game) Update() error {
+
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if g.gameState == simulationState {
+			g.gameState = pauseState
+		} else if g.gameState == pauseState {
+			g.gameState = simulationState
+		}
+	}
+
 	if g.infectedCountNow == 0 || g.infectedCountNow == g.agentsCount {
 		return nil
 	}
-	g.stepDelay--
-	if g.stepDelay == 0 {
-		g.step()
-		g.lastStepTime = time.Now()
-		g.iteration++
-		g.stepDelay = 1
+
+	if g.gameState == pauseState {
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			g.step()
+		}
+		return nil
 	}
+	g.step()
+
 	return nil
 }
 
 func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int, deathChance float64) *Game {
 	g := Game{}
-	agents := make([][]*Agent, width)
+	grid := make([][]*Agent, width)
 	for i := range width {
-		agents[i] = make([]*Agent, height)
+		grid[i] = make([]*Agent, height)
 	}
+	agents := make([]*Agent, agentCount)
 
 	g.infectedCount = infectedCount
 
-	for range agentCount {
+	for i := range agentCount {
 		randX := rng.Intn(width)
 		randY := rng.Intn(height)
-		for agents[randX][randY] != nil {
+		for grid[randX][randY] != nil {
 			randX = rng.Intn(width)
 			randY = rng.Intn(height)
 		}
@@ -203,10 +211,11 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 			infectedCount--
 		}
 
-		agents[randX][randY] = &newAgent
-
+		grid[randX][randY] = &newAgent
+		agents[i] = &newAgent
 	}
 
+	g.grid = grid
 	g.agents = agents
 	g.w = width
 	g.h = height
@@ -223,10 +232,10 @@ func (g *Game) String() string {
 	var str strings.Builder
 	for i := range g.w {
 		for j := range g.h {
-			if g.agents[i][j] == nil {
+			if g.grid[i][j] == nil {
 				str.WriteString("  ")
 			} else {
-				if g.agents[i][j].isInfected() {
+				if g.grid[i][j].isInfected() {
 					str.WriteString(fmt.Sprintf("X "))
 				} else {
 					str.WriteString(fmt.Sprintf("O "))
@@ -244,9 +253,9 @@ func (g *Game) stats() string {
 	endInfected := 0
 	for i := 0; i < g.w; i++ {
 		for j := 0; j < g.h; j++ {
-			if g.agents[i][j] != nil {
+			if g.grid[i][j] != nil {
 				endAgents++
-				if g.agents[i][j].isInfected() {
+				if g.grid[i][j].isInfected() {
 					endInfected++
 				}
 			}

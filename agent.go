@@ -45,7 +45,7 @@ func (a *Agent) handleInfectionTimer(g *Game) {
 }
 
 func (a *Agent) draw(screen *ebiten.Image) {
-	gridOffset := 50
+	gridOffset := 40
 
 	colour := color.RGBA{}
 	if a.state == StateInfected {
@@ -58,7 +58,7 @@ func (a *Agent) draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 0.5, colour, true)
+	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 0.5, 0.5, 0.5, colour, false)
 
 }
 
@@ -76,7 +76,7 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 		for dy := -scanRadius; dy <= scanRadius; dy++ {
 			nx, ny := a.x+dx, a.y+dy
 			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
+				target := g.grid[nx][ny]
 
 				if target != nil && target.state == StateHealthy {
 					dist := dx*dx + dy*dy
@@ -125,7 +125,7 @@ func (a *Agent) find(g *Game) (int, int, bool) {
 			nx, ny := a.x+dx, a.y+dy
 
 			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
+				target := g.grid[nx][ny]
 
 				if target != nil && target.state == StateHealthy {
 					foundList = append(foundList, struct{ x, y int }{nx, ny})

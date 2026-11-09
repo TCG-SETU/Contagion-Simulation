@@ -41,7 +41,7 @@ func main() {
 	const (
 		w                 = 400
 		h                 = 400
-		agentCount        = 5000
+		agentCount        = 10000
 		infectedCount     = 300
 		infectionChance   = 0.8
 		infectionDuration = 50
