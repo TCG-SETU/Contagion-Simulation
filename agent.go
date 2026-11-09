@@ -45,7 +45,7 @@ func (a *Agent) handleInfectionTimer(g *Game) {
 }
 
 func (a *Agent) draw(screen *ebiten.Image) {
-	gridOffset := 40
+	gridOffset := 50
 
 	colour := color.RGBA{}
 	if a.state == StateInfected {

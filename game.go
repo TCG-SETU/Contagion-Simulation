@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math/rand"
 	"strings"
 	"time"
@@ -29,6 +30,10 @@ const (
 	screenWidth  = 600
 	screenHeight = 500
 )
+
+type Counts struct {
+	Healthy, Infected, Dead, Immune HealthState
+}
 
 type Game struct {
 	grid              [][]*Agent
@@ -135,24 +140,50 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 
-	screen.Clear()
-	//screen.Fill(colornames.White)
+	screen.Fill(color.RGBA{R: 46, G: 7, B: 29, A: 0xFF})
 
+	var c Counts
 	// Draw the agents to the screen
 	for _, agent := range g.agents {
 		agent.draw(screen)
+		switch agent.state {
+		case StateHealthy:
+			c.Healthy++
+		case StateInfected:
+			c.Infected++
+		case StateDead:
+			c.Dead++
+		case StateImmune:
+			c.Immune++
+		default:
+			panic("unhandled default case")
+		}
 	}
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("TPS: %0.2f\nFPS: %0.2f", ebiten.ActualTPS(), ebiten.ActualFPS()))
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\nStep: %d", g.iteration))
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("\n\n\nInfected: %d", g.infectedCountNow))
+	status := ""
+	switch {
+	case c.Infected == 0:
+		status = "\nEveryone is healthy!"
+	case c.Healthy == 0 && c.Dead == 0:
+		status = "\nEveryone is infected!"
+	}
 
-	if g.infectedCountNow == 0 {
-		ebitenutil.DebugPrint(screen, "\n\n\n\nEveryone is healthy!")
+	paused := ""
+	if g.gameState == pauseState {
+		paused = "  [PAUSED - N to step]"
 	}
-	if g.infectedCountNow == g.agentsCount {
-		ebitenutil.DebugPrint(screen, "\n\n\n\nEveryone is infected!")
 
-	}
+	ebitenutil.DebugPrint(screen, fmt.Sprintf(
+		"TPS: %0.1f  FPS: %0.1f%s\n"+
+			"Iteration: %d\n"+
+			"Healthy:  %d\n"+
+			"Infected: %d\n"+
+			"Immune:   %d\n"+
+			"Dead:     %d\n"+
+			"Total:    %d%s",
+		ebiten.ActualTPS(), ebiten.ActualFPS(), paused,
+		g.iteration, c.Healthy, c.Infected, c.Immune, c.Dead,
+		c.Healthy+c.Infected+c.Dead, status,
+	))
 }
 
 func (g *Game) Layout(int, int) (int, int) {

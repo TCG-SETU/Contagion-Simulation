@@ -39,7 +39,7 @@ func locationToDirection(a, b, positive, negative int) int {
 func main() {
 
 	const (
-		w                 = 400
+		w                 = 500
 		h                 = 400
 		agentCount        = 10000
 		infectedCount     = 300
