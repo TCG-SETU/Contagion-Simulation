@@ -125,7 +125,7 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 	if target == nil || target.state != StateHealthy {
 		return
 	}
-	shouldInfect := rand.Float64() < g.infectionChance
+	shouldInfect := rng.Float64() < g.infectionChance
 	if shouldInfect {
 		target.state = StateInfected
 		target.infectionTimer = g.infectionDuration
@@ -187,11 +187,11 @@ func newGame(width int, height int, agentCount int, infectedCount int, infection
 	g.infectedCount = infectedCount
 
 	for range agentCount {
-		randX := rand.Intn(width)
-		randY := rand.Intn(height)
+		randX := rng.Intn(width)
+		randY := rng.Intn(height)
 		for agents[randX][randY] != nil {
-			randX = rand.Intn(width)
-			randY = rand.Intn(height)
+			randX = rng.Intn(width)
+			randY = rng.Intn(height)
 		}
 		newAgent := Agent{randX, randY, StateHealthy, 0, 0}
 

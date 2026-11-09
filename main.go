@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+var rng *rand.Rand
 
 func clamp(a, min, max int) int {
 	if a < min {
@@ -35,12 +38,18 @@ func locationToDirection(a, b, positive, negative int) int {
 
 func main() {
 
-	w, h := 400, 400
-	agentCount := 5000
-	infectedCount := 300
-	infectionChance := 0.8
-	infectionDuration := 50
-	deathChance := 0.001
+	const (
+		w                 = 400
+		h                 = 400
+		agentCount        = 5000
+		infectedCount     = 300
+		infectionChance   = 0.8
+		infectionDuration = 50
+		deathChance       = 0.001
+		randomSeed        = 42
+	)
+	source := rand.NewSource(randomSeed)
+	rng = rand.New(source)
 
 	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration, deathChance)
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"image/color"
-	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -27,7 +26,7 @@ type Agent struct {
 
 func (a *Agent) handleInfectionTimer(g *Game) {
 	// Role death check
-	chance := rand.Float64()
+	chance := rng.Float64()
 	if chance < g.deathChance {
 		a.state = StateDead
 		g.infectedCountNow--
@@ -136,7 +135,7 @@ func (a *Agent) find(g *Game) (int, int, bool) {
 	}
 
 	if len(foundList) > 0 {
-		index := rand.Intn(len(foundList))
+		index := rng.Intn(len(foundList))
 		t := foundList[index]
 		dist := t.x*t.x + t.y*t.y
 		if dist < minDist {
