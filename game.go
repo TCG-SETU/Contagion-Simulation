@@ -2,8 +2,21 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math/rand"
 	"strings"
+	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+)
+
+type GameState int
+
+const (
+	simulationState GameState = iota
+	pauseState
 )
 
 const (
@@ -13,93 +26,99 @@ const (
 	LEFT  = -1
 )
 
+const (
+	screenWidth  = 600
+	screenHeight = 500
+)
+
+type Counts struct {
+	Healthy, Infected, Dead, Immune HealthState
+}
+
 type Game struct {
-	agents            [][]*Agent
+	grid              [][]*Agent
+	agents            []*Agent
 	agentsCount       int
 	infectedCount     int
 	infectedCountNow  int
 	h, w              int
 	infectionChance   float64
 	infectionDuration int
+	iteration         int
+	lastStepTime      time.Time
+	stepDelay         int
+	deathChance       float64
+	gameState         GameState
 }
 
-func (g *Game) step(step int) {
-	fmt.Printf("Game %d steps\n", step)
+func (g *Game) step() {
 
-	newAgents := g.agents
+	rand.Shuffle(len(g.agents), func(i, j int) { g.agents[i], g.agents[j] = g.agents[j], g.agents[i] })
 
-	for x := 0; x < g.w; x++ {
-		for y := 0; y < g.h; y++ {
-			agent := g.agents[x][y]
+	for _, agent := range g.agents {
+		if agent == nil || agent.state == StateDead {
+			continue
+		}
 
-			if agent == nil {
-				continue
-			}
+		xStep := rand.Intn(3) - 1
+		yStep := rand.Intn(3) - 1
 
-			xStep := rand.Intn(3) - 1
-			yStep := rand.Intn(3) - 1
-
-			if agent.infected {
-				targetX, targetY, found := g.find(agent.x, agent.y)
-				if found {
-					xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
-					yStep = locationToDirection(targetY, agent.y, DOWN, UP)
-				}
-			}
-			if !agent.infected {
-				bestMoveX, bestMoveY, found := g.escape(agent.x, agent.y)
-				if found {
-					if bestMoveX > agent.x {
-						xStep = RIGHT
-					} else if bestMoveX < agent.x {
-						xStep = LEFT
-					} else {
-						xStep = 0
-					}
-
-					if bestMoveY > agent.y {
-						yStep = DOWN
-					} else if bestMoveY < agent.y {
-						yStep = UP
-					} else {
-						yStep = 0
-					}
-				}
-			}
-
-			newX := agent.x + xStep
-			newY := agent.y + yStep
-
-			// Keep agent inside bounds
-			newX, newY = clampBorders(newX, newY, g.w, g.h)
-
-			// Only move agent
-			if newAgents[newX][newY] == nil {
-				agent.x = newX
-				agent.y = newY
-				newAgents[newX][newY] = agent
-				newAgents[x][y] = nil
-			}
-
-			if agent.infected {
-				agent.handleInfectionTimer(g)
-				// check up down left right
-				g.checkDirection(newAgents, newX+LEFT, newY)
-				g.checkDirection(newAgents, newX, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY)
-				g.checkDirection(newAgents, newX, newY+DOWN)
-				// diagonals
-				g.checkDirection(newAgents, newX+LEFT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+DOWN)
-				g.checkDirection(newAgents, newX+LEFT, newY+DOWN)
+		if agent.isInfected() {
+			targetX, targetY, found := agent.find(g)
+			if found {
+				xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
+				yStep = locationToDirection(targetY, agent.y, DOWN, UP)
 			}
 		}
+		if agent.state == StateHealthy {
+			bestMoveX, bestMoveY, found := agent.escape(g)
+			if found {
+				if bestMoveX > agent.x {
+					xStep = RIGHT
+				} else if bestMoveX < agent.x {
+					xStep = LEFT
+				} else {
+					xStep = 0
+				}
+
+				if bestMoveY > agent.y {
+					yStep = DOWN
+				} else if bestMoveY < agent.y {
+					yStep = UP
+				} else {
+					yStep = 0
+				}
+			}
+		}
+
+		oldX, oldY := agent.x, agent.y
+		newX := agent.x + xStep
+		newY := agent.y + yStep
+
+		// Keep agent inside bounds
+		newX, newY = clampBorders(newX, newY, g.w, g.h)
+
+		// Only move agent
+		if g.grid[newX][newY] == nil {
+			agent.x = newX
+			agent.y = newY
+			g.grid[newX][newY] = agent
+			g.grid[oldX][oldY] = nil
+		}
+
+		if agent.isInfected() {
+			for dx := -1; dx <= 1; dx++ {
+				for dy := -1; dy <= 1; dy++ {
+					if dx != 0 || dy != 0 {
+						g.checkDirection(g.grid, agent.x+dx, agent.y+dy)
+					}
+				}
+			}
+			agent.handleInfectionTimer(g)
+		}
 	}
-
-	fmt.Printf("%d infected\n", g.infectedCountNow)
-
-	g.agents = newAgents
+	g.lastStepTime = time.Now()
+	g.iteration++
 }
 
 func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
@@ -108,52 +127,135 @@ func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
 	}
 
 	target := newAgents[x][y]
-	if target == nil || target.infected {
+	if target == nil || target.state != StateHealthy {
 		return
 	}
-	shouldInfect := rand.Float64() < g.infectionChance
+	shouldInfect := rng.Float64() < g.infectionChance
 	if shouldInfect {
-		target.infected = true
+		target.state = StateInfected
+		target.infectionTimer = g.infectionDuration
 		g.infectedCountNow++
 	}
 }
 
-func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int) *Game {
-	g := Game{}
-	agents := make([][]*Agent, width)
-	for i := range width {
-		agents[i] = make([]*Agent, height)
+func (g *Game) Draw(screen *ebiten.Image) {
+
+	screen.Fill(color.RGBA{R: 46, G: 7, B: 29, A: 0xFF})
+
+	var c Counts
+	// Draw the agents to the screen
+	for _, agent := range g.agents {
+		agent.draw(screen)
+		switch agent.state {
+		case StateHealthy:
+			c.Healthy++
+		case StateInfected:
+			c.Infected++
+		case StateDead:
+			c.Dead++
+		case StateImmune:
+			c.Immune++
+		default:
+			panic("unhandled default case")
+		}
 	}
+	status := ""
+	switch {
+	case c.Infected == 0:
+		status = "\nEveryone is healthy!"
+	case c.Healthy == 0 && c.Dead == 0:
+		status = "\nEveryone is infected!"
+	}
+
+	paused := ""
+	if g.gameState == pauseState {
+		paused = "  [PAUSED - N to step]"
+	}
+
+	ebitenutil.DebugPrint(screen, fmt.Sprintf(
+		"TPS: %0.1f  FPS: %0.1f%s\n"+
+			"Iteration: %d\n"+
+			"Healthy:  %d\n"+
+			"Infected: %d\n"+
+			"Immune:   %d\n"+
+			"Dead:     %d\n"+
+			"Total:    %d%s",
+		ebiten.ActualTPS(), ebiten.ActualFPS(), paused,
+		g.iteration, c.Healthy, c.Infected, c.Immune, c.Dead,
+		c.Healthy+c.Infected+c.Dead, status,
+	))
+}
+
+func (g *Game) Layout(int, int) (int, int) {
+	return screenWidth, screenHeight
+}
+
+func (g *Game) Update() error {
+
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if g.gameState == simulationState {
+			g.gameState = pauseState
+		} else if g.gameState == pauseState {
+			g.gameState = simulationState
+		}
+	}
+
+	if g.infectedCountNow == 0 || g.infectedCountNow == g.agentsCount {
+		return nil
+	}
+
+	if g.gameState == pauseState {
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			g.step()
+		}
+		return nil
+	}
+	g.step()
+
+	return nil
+}
+
+func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int, deathChance float64) *Game {
+	g := Game{}
+	grid := make([][]*Agent, width)
+	for i := range width {
+		grid[i] = make([]*Agent, height)
+	}
+	agents := make([]*Agent, agentCount)
 
 	g.infectedCount = infectedCount
 
-	for range agentCount {
-		randX := rand.Intn(width)
-		randY := rand.Intn(height)
-		for agents[randX][randY] != nil {
-			randX = rand.Intn(width)
-			randY = rand.Intn(height)
+	for i := range agentCount {
+		randX := rng.Intn(width)
+		randY := rng.Intn(height)
+		for grid[randX][randY] != nil {
+			randX = rng.Intn(width)
+			randY = rng.Intn(height)
 		}
-		newAgent := Agent{randX, randY, false, 0}
+		newAgent := Agent{randX, randY, StateHealthy, 0, 0}
 
 		if infectedCount != 0 {
-			newAgent.infected = true
+			newAgent.state = StateInfected
 			newAgent.infectionTimer = infectionDuration
+			newAgent.timesInfected = 1
 			g.infectedCountNow++
 			infectedCount--
-		} else {
-			newAgent.infected = false
 		}
-		agents[randX][randY] = &newAgent
 
+		grid[randX][randY] = &newAgent
+		agents[i] = &newAgent
 	}
 
+	g.grid = grid
 	g.agents = agents
 	g.w = width
 	g.h = height
 	g.infectionChance = infectionChance
 	g.agentsCount = agentCount
 	g.infectionDuration = infectionDuration
+	g.lastStepTime = time.Now()
+	g.stepDelay = 5
+	g.deathChance = deathChance
 	return &g
 }
 
@@ -161,10 +263,10 @@ func (g *Game) String() string {
 	var str strings.Builder
 	for i := range g.w {
 		for j := range g.h {
-			if g.agents[i][j] == nil {
+			if g.grid[i][j] == nil {
 				str.WriteString("  ")
 			} else {
-				if g.agents[i][j].infected {
+				if g.grid[i][j].isInfected() {
 					str.WriteString(fmt.Sprintf("X "))
 				} else {
 					str.WriteString(fmt.Sprintf("O "))
@@ -182,9 +284,9 @@ func (g *Game) stats() string {
 	endInfected := 0
 	for i := 0; i < g.w; i++ {
 		for j := 0; j < g.h; j++ {
-			if g.agents[i][j] != nil {
+			if g.grid[i][j] != nil {
 				endAgents++
-				if g.agents[i][j].infected {
+				if g.grid[i][j].isInfected() {
 					endInfected++
 				}
 			}
@@ -195,78 +297,4 @@ func (g *Game) stats() string {
 		"Game Stats: Size: {%d, %d}  Agents: %d  Starting-Infected: %d  Infection Rate: %f  Infection Duration: %d \nEnd-Agents: %d End-Infected: %d",
 		g.w, g.h, g.agentsCount, g.infectedCount, g.infectionChance, g.infectionDuration, endAgents, endInfected)
 
-}
-
-func (g *Game) find(x, y int) (int, int, bool) {
-	minDist := 99
-	targetX, targetY := -1, -1
-	found := false
-
-	for dx := -2; dx <= 2; dx++ {
-		for dy := -2; dy <= 2; dy++ {
-			nx, ny := x+dx, y+dy
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && !target.infected {
-					dist := dx*dx + dy*dy
-					if dist < minDist {
-						minDist = dist
-						targetX, targetY = nx, ny
-						found = true
-					}
-				}
-			}
-		}
-	}
-	return targetX, targetY, found
-
-}
-func (g *Game) escape(x, y int) (int, int, bool) {
-	closestInfectedDist := 999
-	infX, infY := -1, -1
-	foundInfected := false
-
-	scanRadius := 3
-	for dx := -scanRadius; dx <= scanRadius; dx++ {
-		for dy := -scanRadius; dy <= scanRadius; dy++ {
-			nx, ny := x+dx, y+dy
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && target.infected {
-					dist := dx*dx + dy*dy
-					if dist < closestInfectedDist {
-						closestInfectedDist = dist
-						infX, infY = nx, ny
-						foundInfected = true
-					}
-				}
-			}
-		}
-	}
-	if !foundInfected {
-		return x, y, false
-	}
-
-	bestMoveX, bestMoveY := x, y
-	maxDistFromInfected := -1
-
-	for moveDX := -1; moveDX <= 1; moveDX++ {
-		for moveDY := -1; moveDY <= 1; moveDY++ {
-			nx, ny := x+moveDX, y+moveDY
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h {
-				distToInfected := (nx-infX)*(nx-infX) + (ny-infY)*(ny-infY)
-
-				if distToInfected > maxDistFromInfected {
-					maxDistFromInfected = distToInfected
-					bestMoveX, bestMoveY = nx, ny
-				}
-			}
-		}
-	}
-
-	return bestMoveX, bestMoveY, true
 }

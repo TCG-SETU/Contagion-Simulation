@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
-	"time"
+	"log"
+	"math/rand"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
+
+var rng *rand.Rand
 
 func clamp(a, min, max int) int {
 	if a < min {
@@ -35,25 +38,26 @@ func locationToDirection(a, b, positive, negative int) int {
 
 func main() {
 
-	h := 50
-	w := 50
-	agentCount := 300
-	infectedCount := 10
-	infectionChance := 0.1
-	infectionDuration := 7
+	const (
+		w                 = 500
+		h                 = 400
+		agentCount        = 10000
+		infectedCount     = 300
+		infectionChance   = 0.8
+		infectionDuration = 50
+		deathChance       = 0.001
+		randomSeed        = 42
+	)
+	source := rand.NewSource(randomSeed)
+	rng = rand.New(source)
 
-	game := newGame(h, w, agentCount, infectedCount, infectionChance, infectionDuration)
+	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration, deathChance)
 
-	for i := range 50 {
-		cmd := exec.Command("clear") //Linux example, its tested
-		cmd.Stdout = os.Stdout
-		err := cmd.Run()
-		if err != nil {
-			// ignore
-		}
-		game.step(i)
-		fmt.Print(game.String()) // Clear screen and print field.
-		time.Sleep(100 * time.Millisecond)
+	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowTitle("Contagion")
+
+	if err := ebiten.RunGame(game); err != nil {
+		log.Fatal(err)
 	}
 
 	fmt.Println(game.stats())
