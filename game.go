@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -53,15 +52,15 @@ type Game struct {
 
 func (g *Game) step() {
 
-	rand.Shuffle(len(g.agents), func(i, j int) { g.agents[i], g.agents[j] = g.agents[j], g.agents[i] })
+	rng.Shuffle(len(g.agents), func(i, j int) { g.agents[i], g.agents[j] = g.agents[j], g.agents[i] })
 
 	for _, agent := range g.agents {
 		if agent == nil || agent.state == StateDead {
 			continue
 		}
 
-		xStep := rand.Intn(3) - 1
-		yStep := rand.Intn(3) - 1
+		xStep := rng.Intn(3) - 1
+		yStep := rng.Intn(3) - 1
 
 		if agent.isInfected() {
 			targetX, targetY, found := agent.find(g)
@@ -110,7 +109,7 @@ func (g *Game) step() {
 			for dx := -1; dx <= 1; dx++ {
 				for dy := -1; dy <= 1; dy++ {
 					if dx != 0 || dy != 0 {
-						g.checkDirection(g.grid, agent.x+dx, agent.y+dy)
+						agent.checkDirection(g, agent.x+dx, agent.y+dy)
 					}
 				}
 			}
@@ -119,23 +118,6 @@ func (g *Game) step() {
 	}
 	g.lastStepTime = time.Now()
 	g.iteration++
-}
-
-func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
-	if x < 0 || x >= g.w || y < 0 || y >= g.h {
-		return
-	}
-
-	target := newAgents[x][y]
-	if target == nil || target.state != StateHealthy {
-		return
-	}
-	shouldInfect := rng.Float64() < g.infectionChance
-	if shouldInfect {
-		target.state = StateInfected
-		target.infectionTimer = g.infectionDuration
-		g.infectedCountNow++
-	}
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {

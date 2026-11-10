@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -62,6 +63,23 @@ func (a *Agent) draw(screen *ebiten.Image) {
 
 }
 
+func (a *Agent) checkDirection(g *Game, x int, y int) {
+	if x < 0 || x >= g.w || y < 0 || y >= g.h {
+		return
+	}
+
+	target := g.grid[x][y]
+	if target == nil || target.state != StateHealthy {
+		return
+	}
+	shouldInfect := rng.Float64() < g.infectionChance
+	if shouldInfect {
+		target.state = StateInfected
+		target.infectionTimer = g.infectionDuration
+		g.infectedCountNow++
+	}
+}
+
 func (a *Agent) isInfected() bool {
 	return a.state == StateInfected
 }
@@ -78,7 +96,7 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
 				target := g.grid[nx][ny]
 
-				if target != nil && target.state == StateHealthy {
+				if target != nil && target.state == StateInfected {
 					dist := dx*dx + dy*dy
 					if dist < closestInfectedDist {
 						closestInfectedDist = dist
@@ -115,36 +133,20 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 }
 
 func (a *Agent) find(g *Game) (int, int, bool) {
-	minDist := 99
-	targetX, targetY := -1, -1
-	found := false
-
-	foundList := make([]struct{ x, y int }, 0)
+	bestDist := math.MaxInt
+	tx, ty, found := 0, 0, false
 	for dx := -2; dx <= 2; dx++ {
 		for dy := -2; dy <= 2; dy++ {
 			nx, ny := a.x+dx, a.y+dy
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.grid[nx][ny]
-
-				if target != nil && target.state == StateHealthy {
-					foundList = append(foundList, struct{ x, y int }{nx, ny})
+			if (dx == 0 && dy == 0) || nx < 0 || nx >= g.w || ny < 0 || ny >= g.h {
+				continue
+			}
+			if t := g.grid[nx][ny]; t != nil && t.state == StateHealthy {
+				if d := dx*dx + dy*dy; d < bestDist {
+					bestDist, tx, ty, found = d, nx, ny, true
 				}
 			}
 		}
 	}
-
-	if len(foundList) > 0 {
-		index := rng.Intn(len(foundList))
-		t := foundList[index]
-		dist := t.x*t.x + t.y*t.y
-		if dist < minDist {
-			minDist = dist
-			targetX, targetY = a.x+t.x, a.y+t.y
-			found = true
-		}
-
-	}
-	return targetX, targetY, found
-
+	return tx, ty, found
 }
