@@ -25,12 +25,12 @@ type Agent struct {
 	infectionTimer int
 }
 
-func (a *Agent) handleInfectionTimer(g *Game) {
+func (a *Agent) handleInfectionTimer(w *World) {
 	// Role death check
 	chance := rng.Float64()
-	if chance < g.deathChance {
+	if chance < w.deathChance {
 		a.state = StateDead
-		g.infectedCountNow--
+		w.infectedCountNow--
 		return
 	}
 	a.infectionTimer--
@@ -41,11 +41,11 @@ func (a *Agent) handleInfectionTimer(g *Game) {
 		} else {
 			a.state = StateHealthy
 		}
-		g.infectedCountNow--
+		w.infectedCountNow--
 	}
 }
 
-func (a *Agent) draw(screen *ebiten.Image) {
+func (a *Agent) Draw(screen *ebiten.Image) {
 	gridOffset := 50
 
 	colour := color.RGBA{}
@@ -59,24 +59,24 @@ func (a *Agent) draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 0.5, 0.5, 0.5, colour, false)
+	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 1, colour, false)
 
 }
 
-func (a *Agent) checkDirection(g *Game, x int, y int) {
-	if x < 0 || x >= g.w || y < 0 || y >= g.h {
+func (a *Agent) checkDirection(w *World, x int, y int) {
+	if x < 0 || x >= w.w || y < 0 || y >= w.h {
 		return
 	}
 
-	target := g.grid[x][y]
+	target := w.grid[x][y]
 	if target == nil || target.state != StateHealthy {
 		return
 	}
-	shouldInfect := rng.Float64() < g.infectionChance
+	shouldInfect := rng.Float64() < w.infectionChance
 	if shouldInfect {
 		target.state = StateInfected
-		target.infectionTimer = g.infectionDuration
-		g.infectedCountNow++
+		target.infectionTimer = w.infectionDuration
+		w.infectedCountNow++
 	}
 }
 
@@ -84,7 +84,7 @@ func (a *Agent) isInfected() bool {
 	return a.state == StateInfected
 }
 
-func (a *Agent) escape(g *Game) (int, int, bool) {
+func (a *Agent) escape(w *World) (int, int, bool) {
 	closestInfectedDist := 999
 	infX, infY := -1, -1
 	foundInfected := false
@@ -93,8 +93,8 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 	for dx := -scanRadius; dx <= scanRadius; dx++ {
 		for dy := -scanRadius; dy <= scanRadius; dy++ {
 			nx, ny := a.x+dx, a.y+dy
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.grid[nx][ny]
+			if nx >= 0 && nx < w.w && ny >= 0 && ny < w.h && (dx != 0 || dy != 0) {
+				target := w.grid[nx][ny]
 
 				if target != nil && target.state == StateInfected {
 					dist := dx*dx + dy*dy
@@ -118,7 +118,7 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 		for moveDY := -1; moveDY <= 1; moveDY++ {
 			nx, ny := a.x+moveDX, a.y+moveDY
 
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h {
+			if nx >= 0 && nx < w.w && ny >= 0 && ny < w.h {
 				distToInfected := (nx-infX)*(nx-infX) + (ny-infY)*(ny-infY)
 
 				if distToInfected > maxDistFromInfected {
@@ -132,16 +132,16 @@ func (a *Agent) escape(g *Game) (int, int, bool) {
 	return bestMoveX, bestMoveY, true
 }
 
-func (a *Agent) find(g *Game) (int, int, bool) {
+func (a *Agent) find(w *World) (int, int, bool) {
 	bestDist := math.MaxInt
 	tx, ty, found := 0, 0, false
 	for dx := -2; dx <= 2; dx++ {
 		for dy := -2; dy <= 2; dy++ {
 			nx, ny := a.x+dx, a.y+dy
-			if (dx == 0 && dy == 0) || nx < 0 || nx >= g.w || ny < 0 || ny >= g.h {
+			if (dx == 0 && dy == 0) || nx < 0 || nx >= w.w || ny < 0 || ny >= w.h {
 				continue
 			}
-			if t := g.grid[nx][ny]; t != nil && t.state == StateHealthy {
+			if t := w.grid[nx][ny]; t != nil && t.state == StateHealthy {
 				if d := dx*dx + dy*dy; d < bestDist {
 					bestDist, tx, ty, found = d, nx, ny, true
 				}

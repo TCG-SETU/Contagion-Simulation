@@ -38,20 +38,20 @@ func locationToDirection(a, b, positive, negative int) int {
 
 func main() {
 
-	const (
-		w                 = 500
-		h                 = 400
-		agentCount        = 10000
-		infectedCount     = 300
-		infectionChance   = 0.8
-		infectionDuration = 50
-		deathChance       = 0.001
-		randomSeed        = 42
-	)
-	source := rand.NewSource(randomSeed)
+	cfg := Config{
+		500,
+		400,
+		20000,
+		300,
+		0.3,
+		0.001,
+		500,
+		42,
+	}
+	source := rand.NewSource(cfg.Seed)
 	rng = rand.New(source)
 
-	game := newGame(w, h, agentCount, infectedCount, infectionChance, infectionDuration, deathChance)
+	game := newGame(cfg)
 
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
 	ebiten.SetWindowTitle("Contagion")
