@@ -2,8 +2,18 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
-	"strings"
+	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+)
+
+type GameState int
+
+const (
+	simulationState GameState = iota
+	pauseState
 )
 
 const (
@@ -13,260 +23,106 @@ const (
 	LEFT  = -1
 )
 
+const (
+	screenWidth  = 600
+	screenHeight = 500
+)
+
 type Game struct {
-	agents            [][]*Agent
-	agentsCount       int
-	infectedCount     int
-	infectedCountNow  int
-	h, w              int
-	infectionChance   float64
-	infectionDuration int
+	world *World
 }
 
-func (g *Game) step(step int) {
-	fmt.Printf("Game %d steps\n", step)
+func (g *Game) Draw(screen *ebiten.Image) {
 
-	newAgents := g.agents
+	screen.Fill(color.RGBA{R: 46, G: 7, B: 29, A: 0xFF})
 
-	for x := 0; x < g.w; x++ {
-		for y := 0; y < g.h; y++ {
-			agent := g.agents[x][y]
+	var c = Counts{}
 
-			if agent == nil {
-				continue
-			}
+	for _, agent := range g.world.Agents() {
+		agent.Draw(screen)
 
-			xStep := rand.Intn(3) - 1
-			yStep := rand.Intn(3) - 1
-
-			if agent.infected {
-				targetX, targetY, found := g.find(agent.x, agent.y)
-				if found {
-					xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
-					yStep = locationToDirection(targetY, agent.y, DOWN, UP)
-				}
-			}
-			if !agent.infected {
-				bestMoveX, bestMoveY, found := g.escape(agent.x, agent.y)
-				if found {
-					if bestMoveX > agent.x {
-						xStep = RIGHT
-					} else if bestMoveX < agent.x {
-						xStep = LEFT
-					} else {
-						xStep = 0
-					}
-
-					if bestMoveY > agent.y {
-						yStep = DOWN
-					} else if bestMoveY < agent.y {
-						yStep = UP
-					} else {
-						yStep = 0
-					}
-				}
-			}
-
-			newX := agent.x + xStep
-			newY := agent.y + yStep
-
-			// Keep agent inside bounds
-			newX, newY = clampBorders(newX, newY, g.w, g.h)
-
-			// Only move agent
-			if newAgents[newX][newY] == nil {
-				agent.x = newX
-				agent.y = newY
-				newAgents[newX][newY] = agent
-				newAgents[x][y] = nil
-			}
-
-			if agent.infected {
-				agent.handleInfectionTimer(g)
-				// check up down left right
-				g.checkDirection(newAgents, newX+LEFT, newY)
-				g.checkDirection(newAgents, newX, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY)
-				g.checkDirection(newAgents, newX, newY+DOWN)
-				// diagonals
-				g.checkDirection(newAgents, newX+LEFT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+UP)
-				g.checkDirection(newAgents, newX+RIGHT, newY+DOWN)
-				g.checkDirection(newAgents, newX+LEFT, newY+DOWN)
-			}
+		switch agent.state {
+		case StateHealthy:
+			c.Healthy++
+		case StateInfected:
+			c.Infected++
+		case StateDead:
+			c.Dead++
+		case StateImmune:
+			c.Immune++
+		default:
+			panic("unhandled default case")
 		}
 	}
 
-	fmt.Printf("%d infected\n", g.infectedCountNow)
+	status := ""
+	switch {
+	case c.Infected == 0:
+		status = "\nEveryone is healthy!"
+	case c.Healthy == 0 && c.Dead == 0:
+		status = "\nEveryone is infected!"
+	}
 
-	g.agents = newAgents
+	paused := ""
+	if g.world.gameState == pauseState {
+		paused = "  [PAUSED - N to step]"
+	}
+
+	ebitenutil.DebugPrint(screen, fmt.Sprintf(
+		"TPS: %0.1f  FPS: %0.1f%s\n"+
+			"Iteration: %d\n"+
+			"Healthy:  %d\n"+
+			"Infected: %d\n"+
+			"Immune:   %d\n"+
+			"Dead:     %d\n"+
+			"Total:    %d%s",
+		ebiten.ActualTPS(), ebiten.ActualFPS(), paused,
+		g.world.iteration, c.Healthy, c.Infected, c.Immune, c.Dead,
+		c.Healthy+c.Infected+c.Dead+c.Immune, status,
+	))
 }
 
-func (g *Game) checkDirection(newAgents [][]*Agent, x int, y int) {
-	if x < 0 || x >= g.w || y < 0 || y >= g.h {
-		return
-	}
-
-	target := newAgents[x][y]
-	if target == nil || target.infected {
-		return
-	}
-	shouldInfect := rand.Float64() < g.infectionChance
-	if shouldInfect {
-		target.infected = true
-		g.infectedCountNow++
-	}
+func (g *Game) Layout(int, int) (int, int) {
+	return screenWidth, screenHeight
 }
 
-func newGame(width int, height int, agentCount int, infectedCount int, infectionChance float64, infectionDuration int) *Game {
+func (g *Game) Update() error {
+
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if g.world.gameState == simulationState {
+			g.world.gameState = pauseState
+		} else if g.world.gameState == pauseState {
+			g.world.gameState = simulationState
+		}
+	}
+
+	if g.world.Done() {
+		return nil
+	}
+
+	if g.world.gameState == pauseState {
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			g.world.Step()
+		}
+		return nil
+	}
+	g.world.Step()
+
+	return nil
+}
+
+func newGame(cfg Config) *Game {
 	g := Game{}
-	agents := make([][]*Agent, width)
-	for i := range width {
-		agents[i] = make([]*Agent, height)
-	}
-
-	g.infectedCount = infectedCount
-
-	for range agentCount {
-		randX := rand.Intn(width)
-		randY := rand.Intn(height)
-		for agents[randX][randY] != nil {
-			randX = rand.Intn(width)
-			randY = rand.Intn(height)
-		}
-		newAgent := Agent{randX, randY, false, 0}
-
-		if infectedCount != 0 {
-			newAgent.infected = true
-			newAgent.infectionTimer = infectionDuration
-			g.infectedCountNow++
-			infectedCount--
-		} else {
-			newAgent.infected = false
-		}
-		agents[randX][randY] = &newAgent
-
-	}
-
-	g.agents = agents
-	g.w = width
-	g.h = height
-	g.infectionChance = infectionChance
-	g.agentsCount = agentCount
-	g.infectionDuration = infectionDuration
+	g.world = New(cfg)
 	return &g
-}
-
-func (g *Game) String() string {
-	var str strings.Builder
-	for i := range g.w {
-		for j := range g.h {
-			if g.agents[i][j] == nil {
-				str.WriteString("  ")
-			} else {
-				if g.agents[i][j].infected {
-					str.WriteString(fmt.Sprintf("X "))
-				} else {
-					str.WriteString(fmt.Sprintf("O "))
-				}
-			}
-		}
-		str.WriteString("\n")
-	}
-	return str.String()
 }
 
 func (g *Game) stats() string {
 
-	endAgents := 0
-	endInfected := 0
-	for i := 0; i < g.w; i++ {
-		for j := 0; j < g.h; j++ {
-			if g.agents[i][j] != nil {
-				endAgents++
-				if g.agents[i][j].infected {
-					endInfected++
-				}
-			}
-		}
-	}
+	c := g.world.Counts()
 
 	return fmt.Sprintf(
 		"Game Stats: Size: {%d, %d}  Agents: %d  Starting-Infected: %d  Infection Rate: %f  Infection Duration: %d \nEnd-Agents: %d End-Infected: %d",
-		g.w, g.h, g.agentsCount, g.infectedCount, g.infectionChance, g.infectionDuration, endAgents, endInfected)
+		g.world.w, g.world.h, g.world.agentsCount, g.world.initialInfected, g.world.infectionChance, g.world.infectionDuration, g.world.agentsCount, c.Infected)
 
-}
-
-func (g *Game) find(x, y int) (int, int, bool) {
-	minDist := 99
-	targetX, targetY := -1, -1
-	found := false
-
-	for dx := -2; dx <= 2; dx++ {
-		for dy := -2; dy <= 2; dy++ {
-			nx, ny := x+dx, y+dy
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && !target.infected {
-					dist := dx*dx + dy*dy
-					if dist < minDist {
-						minDist = dist
-						targetX, targetY = nx, ny
-						found = true
-					}
-				}
-			}
-		}
-	}
-	return targetX, targetY, found
-
-}
-func (g *Game) escape(x, y int) (int, int, bool) {
-	closestInfectedDist := 999
-	infX, infY := -1, -1
-	foundInfected := false
-
-	scanRadius := 3
-	for dx := -scanRadius; dx <= scanRadius; dx++ {
-		for dy := -scanRadius; dy <= scanRadius; dy++ {
-			nx, ny := x+dx, y+dy
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h && (dx != 0 || dy != 0) {
-				target := g.agents[nx][ny]
-
-				if target != nil && target.infected {
-					dist := dx*dx + dy*dy
-					if dist < closestInfectedDist {
-						closestInfectedDist = dist
-						infX, infY = nx, ny
-						foundInfected = true
-					}
-				}
-			}
-		}
-	}
-	if !foundInfected {
-		return x, y, false
-	}
-
-	bestMoveX, bestMoveY := x, y
-	maxDistFromInfected := -1
-
-	for moveDX := -1; moveDX <= 1; moveDX++ {
-		for moveDY := -1; moveDY <= 1; moveDY++ {
-			nx, ny := x+moveDX, y+moveDY
-
-			if nx >= 0 && nx < g.w && ny >= 0 && ny < g.h {
-				distToInfected := (nx-infX)*(nx-infX) + (ny-infY)*(ny-infY)
-
-				if distToInfected > maxDistFromInfected {
-					maxDistFromInfected = distToInfected
-					bestMoveX, bestMoveY = nx, ny
-				}
-			}
-		}
-	}
-
-	return bestMoveX, bestMoveY, true
 }
