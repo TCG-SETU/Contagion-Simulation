@@ -46,11 +46,11 @@ func main() {
 	cfg := Config{
 		Width:             500,
 		Height:            400,
-		Agents:            20000,
+		Agents:            10000,
 		InitialInfected:   300,
-		InfectionChance:   0.9,
-		DeathChance:       0.01,
-		InfectionDuration: 500,
+		InfectionChance:   0.3,
+		DeathChance:       0.00001,
+		InfectionDuration: 200,
 		Seed:              *seed,
 	}
 	rng = rand.New(rand.NewSource(cfg.Seed))
