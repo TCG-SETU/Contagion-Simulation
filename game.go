@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 type GameState int
@@ -29,7 +30,40 @@ const (
 )
 
 type Game struct {
-	world *World
+	world      *World
+	cleanupBus *cleanupBus
+}
+
+const gridOffset = 50
+
+// cleanupBus is a small blue bus that drives across the grid. Its front edge
+// is the cleanup line: every dead agent behind it is removed from the world.
+type cleanupBus struct {
+	x int
+}
+
+func (b *cleanupBus) update(w *World) bool {
+	b.x += 8
+	w.RemoveDeadThrough(b.x - gridOffset)
+	return b.x > gridOffset+w.w+60
+}
+
+func (b *cleanupBus) draw(screen *ebiten.Image, w *World) {
+	const (
+		busWidth  = 56
+		busHeight = 24
+	)
+	y := screenHeight/2 - busHeight/2
+
+	// A subtle vertical sweep shows that the bus is collecting agents across
+	// the whole simulation grid, rather than just those on the road.
+	vector.DrawFilledRect(screen, float32(gridOffset), float32(gridOffset), float32(b.x-gridOffset), float32(w.h), color.RGBA{R: 45, G: 135, B: 220, A: 24}, false)
+	vector.DrawFilledRect(screen, float32(b.x-busWidth), float32(y), busWidth, busHeight, color.RGBA{R: 31, G: 112, B: 201, A: 0xFF}, false)
+	vector.DrawFilledRect(screen, float32(b.x-busWidth+8), float32(y+5), 12, 8, color.RGBA{R: 180, G: 225, B: 255, A: 0xFF}, false)
+	vector.DrawFilledRect(screen, float32(b.x-busWidth+24), float32(y+5), 12, 8, color.RGBA{R: 180, G: 225, B: 255, A: 0xFF}, false)
+	vector.DrawFilledRect(screen, float32(b.x-busWidth+41), float32(y+5), 8, 8, color.RGBA{R: 180, G: 225, B: 255, A: 0xFF}, false)
+	vector.DrawFilledCircle(screen, float32(b.x-busWidth+12), float32(y+busHeight), 4, color.RGBA{R: 20, G: 25, B: 35, A: 0xFF}, false)
+	vector.DrawFilledCircle(screen, float32(b.x-12), float32(y+busHeight), 4, color.RGBA{R: 20, G: 25, B: 35, A: 0xFF}, false)
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -54,6 +88,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			panic("unhandled default case")
 		}
 	}
+	if g.cleanupBus != nil {
+		g.cleanupBus.draw(screen, g.world)
+	}
 
 	status := ""
 	switch {
@@ -69,7 +106,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	ebitenutil.DebugPrint(screen, fmt.Sprintf(
-		"TPS: %0.1f  FPS: %0.1f%s\n"+
+		"TPS: %0.1f  FPS: %0.1f%s  [B: cleanup bus]\n"+
 			"Iteration: %d\n"+
 			"Healthy:  %d\n"+
 			"Infected: %d\n"+
@@ -95,8 +132,21 @@ func (g *Game) Update() error {
 			g.world.gameState = simulationState
 		}
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyB) && g.cleanupBus == nil && g.world.Counts().Dead > 0 {
+		g.cleanupBus = &cleanupBus{x: gridOffset - 1}
+	}
+
+	if g.cleanupBus != nil {
+		if g.cleanupBus.update(g.world) {
+			g.cleanupBus = nil
+		}
+		return nil
+	}
 
 	if g.world.Done() {
+		if g.world.Counts().Dead > 0 {
+			g.cleanupBus = &cleanupBus{x: gridOffset - 1}
+		}
 		return nil
 	}
 

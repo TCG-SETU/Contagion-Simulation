@@ -26,6 +26,22 @@ type World struct {
 	gameState         GameState
 }
 
+// RemoveDeadThrough removes dead agents that have been passed by the cleanup
+// sweep. Keeping the grid and the agent list in sync lets their cells be used
+// again if the simulation is stepped after a cleanup.
+func (w *World) RemoveDeadThrough(x int) {
+	remaining := w.agents[:0]
+	for _, agent := range w.agents {
+		if agent != nil && agent.state == StateDead && agent.x <= x {
+			w.grid[agent.x][agent.y] = nil
+			w.agentsCount--
+			continue
+		}
+		remaining = append(remaining, agent)
+	}
+	w.agents = remaining
+}
+
 func New(cfg Config) *World {
 
 	if cfg.Agents > cfg.Width*cfg.Height {
@@ -150,6 +166,9 @@ func (w *World) Counts() Counts {
 	var c Counts
 
 	for _, agent := range w.agents {
+		if agent == nil {
+			continue
+		}
 		switch agent.state {
 		case StateHealthy:
 			c.Healthy++
