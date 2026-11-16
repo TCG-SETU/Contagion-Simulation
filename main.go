@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -37,19 +38,27 @@ func locationToDirection(a, b, positive, negative int) int {
 }
 
 func main() {
+	headless := flag.Bool("headless", false, "run without a window")
+	maxSteps := flag.Int("max-steps", 10000, "step limit in headless mode")
+	seed := flag.Int64("seed", 42, "RNG seed")
+	flag.Parse()
 
 	cfg := Config{
-		500,
-		400,
-		20000,
-		300,
-		0.3,
-		0.001,
-		500,
-		42,
+		Width:             500,
+		Height:            400,
+		Agents:            20000,
+		InitialInfected:   300,
+		InfectionChance:   0.9,
+		DeathChance:       0.01,
+		InfectionDuration: 500,
+		Seed:              *seed,
 	}
-	source := rand.NewSource(cfg.Seed)
-	rng = rand.New(source)
+	rng = rand.New(rand.NewSource(cfg.Seed))
+
+	if *headless {
+		runHeadless(New(cfg), *maxSteps)
+		return
+	}
 
 	game := newGame(cfg)
 
