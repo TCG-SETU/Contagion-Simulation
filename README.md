@@ -4,6 +4,15 @@ This project is a contagion simulation written in Go. It simulates a population 
 
 Its displays the grid inside of the terminal and updates over multiple steps
 
+## Colour key
+
+| Colour    | State    |
+|-----------|----------|
+| Green     | Healthy  |
+| Red       | Infected |
+| Cyan      | Immune   |
+| Dark grey | Dead     |
+
 
 ## Installation
 
