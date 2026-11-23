@@ -9,6 +9,7 @@ Its displays the grid inside of the terminal and updates over multiple steps
 | Colour    | State    |
 |-----------|----------|
 | Green     | Healthy  |
+| Orange    | Infectious |
 | Red       | Infected |
 | Cyan      | Immune   |
 | Dark grey | Dead     |

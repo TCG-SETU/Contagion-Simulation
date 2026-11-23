@@ -11,32 +11,6 @@ import (
 
 var rng *rand.Rand
 
-func clamp(a, min, max int) int {
-	if a < min {
-		a = min
-	}
-	if a > max {
-		a = max
-	}
-	return a
-}
-
-func clampBorders(x, y, w, h int) (int, int) {
-	x = clamp(x, 0, w-1)
-	y = clamp(y, 0, h-1)
-	return x, y
-}
-
-func locationToDirection(a, b, positive, negative int) int {
-	val := 0
-	if a > b {
-		val = positive
-	} else if a < b {
-		val = negative
-	}
-	return val
-}
-
 func main() {
 	headless := flag.Bool("headless", false, "run without a window")
 	maxSteps := flag.Int("max-steps", 10000, "step limit in headless mode")
@@ -47,8 +21,8 @@ func main() {
 	cfg := Config{
 		Width:             500,
 		Height:            400,
-		Agents:            10000,
-		InitialInfected:   300,
+		Agents:            1000,
+		InitialInfected:   20,
 		InfectionChance:   0.3,
 		DeathChance:       0.00001,
 		InfectionDuration: 200,
