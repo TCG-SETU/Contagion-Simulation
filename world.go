@@ -54,11 +54,11 @@ func New(cfg Config) *World {
 	w.m.LoadMask()
 
 	w.towns = [townCount]Town{
-		{70, 66, 40},
-		{155, 273, 37},
-		{406, 299, 55},
-		{340, 82, 40},
-		{214, 150, 48}}
+		{146 + 44, 367 + 44, 44},
+		{409 + 58, 531 + 58, 58},
+		{285 + 50, 774 + 50, 50},
+		{726 + 44, 642 + 44, 44},
+		{684 + 45, 172 + 45, 45}}
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead

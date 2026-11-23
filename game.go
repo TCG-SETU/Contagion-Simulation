@@ -46,7 +46,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.world.m.Draw(screen, g.cam, g.world.w, g.world.h)
 
 	for _, t := range g.world.towns {
-		t.Draw(screen)
+		t.Draw(screen, g.cam)
 	}
 
 	var c = g.world.agentStatsCount
