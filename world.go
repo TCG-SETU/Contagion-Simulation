@@ -9,6 +9,7 @@ type Config struct {
 	InfectionChance, DeathChance           float64
 	InfectionDuration                      int
 	Seed                                   int64
+	HideDead                               bool
 }
 
 type World struct {
@@ -23,6 +24,7 @@ type World struct {
 	iteration         int
 	stepDelay         int
 	deathChance       float64
+	hideDead          bool
 	gameState         GameState
 }
 
@@ -59,6 +61,7 @@ func New(cfg Config) *World {
 	agents := make([]*Agent, cfg.Agents)
 
 	w.initialInfected = cfg.InitialInfected
+	w.hideDead = cfg.HideDead
 
 	for i := range cfg.Agents {
 		randX := rng.Intn(cfg.Width)

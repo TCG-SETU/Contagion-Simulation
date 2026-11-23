@@ -73,7 +73,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var c = Counts{}
 
 	for _, agent := range g.world.Agents() {
-		agent.Draw(screen)
+		if !(g.world.hideDead && agent.state == StateDead) {
+			agent.Draw(screen)
+		}
 
 		switch agent.state {
 		case StateHealthy:

@@ -41,17 +41,19 @@ func main() {
 	headless := flag.Bool("headless", false, "run without a window")
 	maxSteps := flag.Int("max-steps", 10000, "step limit in headless mode")
 	seed := flag.Int64("seed", 42, "RNG seed")
+	hideDead := flag.Bool("hide-dead", false, "hide dead window")
 	flag.Parse()
 
 	cfg := Config{
 		Width:             500,
 		Height:            400,
-		Agents:            20000,
+		Agents:            10000,
 		InitialInfected:   300,
-		InfectionChance:   0.9,
-		DeathChance:       0.01,
-		InfectionDuration: 500,
+		InfectionChance:   0.3,
+		DeathChance:       0.00001,
+		InfectionDuration: 200,
 		Seed:              *seed,
+		HideDead:          *hideDead,
 	}
 	rng = rand.New(rand.NewSource(cfg.Seed))
 
