@@ -46,8 +46,6 @@ func (a *Agent) handleInfectionTimer(w *World) {
 }
 
 func (a *Agent) Draw(screen *ebiten.Image) {
-	gridOffset := 50
-
 	colour := color.RGBA{}
 	if a.state == StateInfected {
 		colour = colornames.Red
@@ -59,7 +57,7 @@ func (a *Agent) Draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 1, colour, false)
+	vector.StrokeRect(screen, float32(a.x), float32(a.y), 1, 1, 1, colour, false)
 
 }
 

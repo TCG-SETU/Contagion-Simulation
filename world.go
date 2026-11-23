@@ -15,6 +15,7 @@ type Config struct {
 type World struct {
 	grid              [][]*Agent
 	agents            []*Agent
+	m                 *Map
 	agentsCount       int
 	initialInfected   int
 	infectedCountNow  int
@@ -43,6 +44,11 @@ func New(cfg Config) *World {
 		grid[i] = make([]*Agent, cfg.Height)
 	}
 	agents := make([]*Agent, cfg.Agents)
+	w.m = &Map{
+		Image:     "images/Springfield_Island.jpg",
+		ImageMask: "images/Springfield_Island_mask.jpg",
+	}
+	w.m.LoadMask()
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead
@@ -50,7 +56,8 @@ func New(cfg Config) *World {
 	for i := range cfg.Agents {
 		randX := rng.Intn(cfg.Width)
 		randY := rng.Intn(cfg.Height)
-		for grid[randX][randY] != nil {
+		// keep looking for a random spot if the one chosen is occupied or unsafe
+		for grid[randX][randY] != nil || !w.m.IsSafe(randX, randY) {
 			randX = rng.Intn(cfg.Width)
 			randY = rng.Intn(cfg.Height)
 		}
@@ -125,6 +132,7 @@ func (w *World) Step() {
 
 		// Keep agent inside bounds
 		newX, newY = clampBorders(newX, newY, w.w, w.h)
+		newX, newY = clampToMap(w.m, oldX, oldY, newX, newY)
 
 		// Only move agent
 		if w.grid[newX][newY] == nil {

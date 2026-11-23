@@ -27,6 +27,26 @@ func clampBorders(x, y, w, h int) (int, int) {
 	return x, y
 }
 
+// clamps x and y to safe locations on the map
+func clampToMap(m *Map, oldX, oldY, newX, newY int) (int, int) {
+	if !m.IsSafe(oldX, oldY) {
+		panic(fmt.Sprintf("old x and y must be safe, %d, %d", oldX, oldY))
+	}
+
+	x := oldX
+	y := oldY
+	if m.IsSafe(newX, oldY) {
+		x = newX
+	}
+	if m.IsSafe(oldX, newY) {
+		y = newY
+	}
+	if m.IsSafe(x, y) {
+		return x, y
+	}
+	return oldX, oldY
+}
+
 func locationToDirection(a, b, positive, negative int) int {
 	val := 0
 	if a > b {
@@ -45,8 +65,8 @@ func main() {
 	flag.Parse()
 
 	cfg := Config{
-		Width:             500,
-		Height:            400,
+		Width:             1000,
+		Height:            1000,
 		Agents:            10000,
 		InitialInfected:   300,
 		InfectionChance:   0.3,
