@@ -12,6 +12,13 @@ type Config struct {
 	HideDead                               bool
 }
 
+const (
+	townCount         = 5
+	travelChance      = .0005
+	stayDuration      = 100
+	infectedTravelBan = .0005
+)
+
 type World struct {
 	grid              [][]*Agent
 	agents            []*Agent
@@ -26,6 +33,7 @@ type World struct {
 	deathChance       float64
 	hideDead          bool
 	gameState         GameState
+	towns             [5]Town
 }
 
 func New(cfg Config) *World {
@@ -38,25 +46,33 @@ func New(cfg Config) *World {
 	}
 
 	w := &World{}
+	w.w = cfg.Width
+	w.h = cfg.Height
+
 	grid := make([][]*Agent, cfg.Width)
 	for i := range cfg.Width {
 		grid[i] = make([]*Agent, cfg.Height)
 	}
+	w.grid = grid
 	agents := make([]*Agent, cfg.Agents)
+
+	w.towns = [townCount]Town{
+		{70, 66, 40},
+		{155, 273, 37},
+		{406, 299, 55},
+		{300, 102, 40},
+		{214, 150, 48}}
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead
 
 	for i := range cfg.Agents {
-		randX := rng.Intn(cfg.Width)
-		randY := rng.Intn(cfg.Height)
-		for grid[randX][randY] != nil {
-			randX = rng.Intn(cfg.Width)
-			randY = rng.Intn(cfg.Height)
-		}
-		newAgent := Agent{randX, randY, StateHealthy, 0, 0}
+		townIdx := i % townCount
+		x, y := w.spawnPos(w.towns[townIdx])
+		newAgent := Agent{x, y, StateHealthy, 0,
+			0, townIdx, -1, Local, -1}
 
-		if cfg.InitialInfected != 0 {
+		if cfg.InitialInfected != 0 && townIdx == 0 {
 			newAgent.state = StateInfected
 			newAgent.infectionTimer = cfg.InfectionDuration
 			newAgent.timesInfected = 1
@@ -64,20 +80,28 @@ func New(cfg Config) *World {
 			cfg.InitialInfected--
 		}
 
-		grid[randX][randY] = &newAgent
+		w.grid[x][y] = &newAgent
 		agents[i] = &newAgent
 	}
 
-	w.grid = grid
 	w.agents = agents
-	w.w = cfg.Width
-	w.h = cfg.Height
 	w.infectionChance = cfg.InfectionChance
 	w.agentsCount = cfg.Agents
 	w.infectionDuration = cfg.InfectionDuration
 	w.stepDelay = 5
 	w.deathChance = cfg.DeathChance
 	return w
+}
+
+func (w *World) spawnPos(t Town) (int, int) {
+	sigma := float64(t.radius) / 2
+	for {
+		x := t.cx + int(rng.NormFloat64()*sigma)
+		y := t.cy + int(rng.NormFloat64()*sigma)
+		if x >= 0 && x < w.w && y >= 0 && y < w.h && w.grid[x][y] == nil {
+			return x, y
+		}
+	}
 }
 
 func (w *World) Step() {
@@ -88,36 +112,8 @@ func (w *World) Step() {
 			continue
 		}
 
-		xStep := rng.Intn(3) - 1
-		yStep := rng.Intn(3) - 1
-
-		if agent.isInfected() {
-			targetX, targetY, found := agent.find(w)
-			if found {
-				xStep = locationToDirection(targetX, agent.x, RIGHT, LEFT)
-				yStep = locationToDirection(targetY, agent.y, DOWN, UP)
-			}
-		}
-		if agent.state == StateHealthy {
-			bestMoveX, bestMoveY, found := agent.escape(w)
-			if found {
-				if bestMoveX > agent.x {
-					xStep = RIGHT
-				} else if bestMoveX < agent.x {
-					xStep = LEFT
-				} else {
-					xStep = 0
-				}
-
-				if bestMoveY > agent.y {
-					yStep = DOWN
-				} else if bestMoveY < agent.y {
-					yStep = UP
-				} else {
-					yStep = 0
-				}
-			}
-		}
+		agent.updateTravel(w)
+		xStep, yStep := agent.wander(w)
 
 		oldX, oldY := agent.x, agent.y
 		newX := agent.x + xStep
@@ -135,14 +131,7 @@ func (w *World) Step() {
 		}
 
 		if agent.isInfected() {
-			for dx := -1; dx <= 1; dx++ {
-				for dy := -1; dy <= 1; dy++ {
-					if dx != 0 || dy != 0 {
-						agent.checkDirection(w, agent.x+dx, agent.y+dy)
-					}
-				}
-			}
-			agent.handleInfectionTimer(w)
+			agent.attemptInfection(w)
 		}
 	}
 	w.iteration++

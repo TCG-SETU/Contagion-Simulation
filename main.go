@@ -47,8 +47,8 @@ func main() {
 	cfg := Config{
 		Width:             500,
 		Height:            400,
-		Agents:            10000,
-		InitialInfected:   300,
+		Agents:            1000,
+		InitialInfected:   20,
 		InfectionChance:   0.3,
 		DeathChance:       0.00001,
 		InfectionDuration: 200,

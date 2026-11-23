@@ -26,6 +26,7 @@ const (
 const (
 	screenWidth  = 600
 	screenHeight = 500
+	gridOffset   = 50
 )
 
 type Game struct {
@@ -35,6 +36,10 @@ type Game struct {
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	screen.Fill(color.RGBA{R: 46, G: 7, B: 29, A: 0xFF})
+
+	for _, t := range g.world.towns {
+		t.Draw(screen)
+	}
 
 	var c = Counts{}
 
