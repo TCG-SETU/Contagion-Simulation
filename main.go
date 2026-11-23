@@ -38,7 +38,7 @@ func main() {
 
 	game := newGame(cfg)
 
-	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Contagion")
 
 	if err := ebiten.RunGame(game); err != nil {

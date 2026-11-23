@@ -25,8 +25,8 @@ const (
 )
 
 const (
-	screenWidth  = 400
-	screenHeight = 400
+	screenWidth  = 1080
+	screenHeight = 1080
 )
 
 type Game struct {
