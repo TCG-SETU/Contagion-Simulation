@@ -1,9 +1,5 @@
 package main
 
-type Counts struct {
-	Healthy, Infected, Dead, Immune int
-}
-
 type Config struct {
 	Width, Height, Agents, InitialInfected int
 	InfectionChance, DeathChance           float64
@@ -12,19 +8,14 @@ type Config struct {
 	HideDead                               bool
 }
 
-const (
-	townCount         = 5
-	travelChance      = .0005
-	stayDuration      = 100
-	infectedTravelBan = .0005
-)
+const contagiousTimer = 100
 
 type World struct {
 	grid              [][]*Agent
 	agents            []*Agent
 	agentsCount       int
 	initialInfected   int
-	infectedCountNow  int
+	agentStatsCount   Counts
 	h, w              int
 	infectionChance   float64
 	infectionDuration int
@@ -60,30 +51,31 @@ func New(cfg Config) *World {
 		{70, 66, 40},
 		{155, 273, 37},
 		{406, 299, 55},
-		{300, 102, 40},
+		{340, 82, 40},
 		{214, 150, 48}}
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead
-
+	w.agentStatsCount = Counts{}
 	for i := range cfg.Agents {
 		townIdx := i % townCount
 		x, y := w.spawnPos(w.towns[townIdx])
 		newAgent := Agent{x, y, StateHealthy, 0,
-			0, townIdx, -1, Local, -1}
+			0, 0, townIdx, -1, Local, -1}
 
 		if cfg.InitialInfected != 0 && townIdx == 0 {
 			newAgent.state = StateInfected
 			newAgent.infectionTimer = cfg.InfectionDuration
+			newAgent.contagiousTimer = contagiousTimer
 			newAgent.timesInfected = 1
-			w.infectedCountNow++
+			w.agentStatsCount.Infected++
 			cfg.InitialInfected--
 		}
 
 		w.grid[x][y] = &newAgent
 		agents[i] = &newAgent
 	}
-
+	w.agentStatsCount.Healthy = cfg.Agents - w.agentStatsCount.Infected
 	w.agents = agents
 	w.infectionChance = cfg.InfectionChance
 	w.agentsCount = cfg.Agents
@@ -106,7 +98,7 @@ func (w *World) spawnPos(t Town) (int, int) {
 
 func (w *World) Step() {
 	rng.Shuffle(len(w.agents), func(i, j int) { w.agents[i], w.agents[j] = w.agents[j], w.agents[i] })
-
+	countsDelta := Counts{}
 	for _, agent := range w.agents {
 		if agent == nil || agent.state == StateDead {
 			continue
@@ -130,10 +122,11 @@ func (w *World) Step() {
 			w.grid[oldX][oldY] = nil
 		}
 
-		if agent.isInfected() {
-			agent.attemptInfection(w)
+		if agent.isInfected() || agent.state == StateInfectious {
+			agent.attemptInfection(w, &countsDelta)
 		}
 	}
+	w.agentStatsCount.Update(countsDelta)
 	w.iteration++
 
 }
@@ -145,6 +138,8 @@ func (w *World) Counts() Counts {
 		switch agent.state {
 		case StateHealthy:
 			c.Healthy++
+		case StateInfectious:
+			c.Infectious++
 		case StateInfected:
 			c.Infected++
 		case StateDead:
@@ -164,5 +159,33 @@ func (w *World) Agents() []*Agent {
 }
 
 func (w *World) Done() bool {
-	return w.infectedCountNow == 0 || w.infectedCountNow == w.agentsCount
+	return w.agentStatsCount.Infected+w.agentStatsCount.Infectious == 0 ||
+		w.agentStatsCount.Infected+w.agentStatsCount.Dead == w.agentsCount
+}
+
+// Helpers
+func clamp(a, min, max int) int {
+	if a < min {
+		a = min
+	}
+	if a > max {
+		a = max
+	}
+	return a
+}
+
+func clampBorders(x, y, w, h int) (int, int) {
+	x = clamp(x, 0, w-1)
+	y = clamp(y, 0, h-1)
+	return x, y
+}
+
+func locationToDirection(a, b, positive, negative int) int {
+	val := 0
+	if a > b {
+		val = positive
+	} else if a < b {
+		val = negative
+	}
+	return val
 }

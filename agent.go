@@ -13,6 +13,7 @@ type HealthState int
 
 const (
 	StateHealthy HealthState = iota
+	StateInfectious
 	StateInfected
 	StateImmune
 	StateDead
@@ -28,10 +29,11 @@ const (
 )
 
 type Agent struct {
-	x, y           int
-	state          HealthState
-	timesInfected  int
-	infectionTimer int
+	x, y            int
+	state           HealthState
+	timesInfected   int
+	contagiousTimer int
+	infectionTimer  int
 
 	home      int // index into g.towns
 	dest      int
@@ -102,33 +104,48 @@ func (a *Agent) wander(w *World) (int, int) {
 	return dx, dy
 }
 
-func (a *Agent) attemptInfection(w *World) {
+func (a *Agent) attemptInfection(w *World, c *Counts) {
 	for dx := -1; dx <= 1; dx++ {
 		for dy := -1; dy <= 1; dy++ {
 			if dx != 0 || dy != 0 {
-				checkDirection(w, a.x+dx, a.y+dy)
+				checkDirection(w, a.x+dx, a.y+dy, c)
 			}
 		}
 	}
-	a.handleInfectionTimer(w)
+	a.handleInfectionTimer(w, c)
 }
-func (a *Agent) handleInfectionTimer(w *World) {
+
+func (a *Agent) handleInfectionTimer(w *World, c *Counts) {
+	if a.state == StateInfectious {
+		a.contagiousTimer--
+		if a.contagiousTimer <= 0 {
+			a.contagiousTimer = 0
+			a.state = StateInfected
+			c.Infected++
+			c.Infectious--
+		}
+		return
+	}
+
 	// Role death check
 	chance := rng.Float64()
 	if chance < w.deathChance {
 		a.state = StateDead
-		w.infectedCountNow--
+		c.Dead++
+		c.Infected--
 		return
 	}
 	a.infectionTimer--
 	if a.infectionTimer <= 0 {
 		a.timesInfected++
-		if a.timesInfected >= 5 {
+		if a.timesInfected >= 2 {
 			a.state = StateImmune
+			c.Immune++
 		} else {
 			a.state = StateHealthy
+			c.Healthy++
 		}
-		w.infectedCountNow--
+		c.Infected--
 	}
 }
 
@@ -141,6 +158,8 @@ func (a *Agent) Draw(screen *ebiten.Image) {
 		colour = colornames.Darkgrey
 	} else if a.state == StateImmune {
 		colour = colornames.Cyan
+	} else if a.state == StateInfectious {
+		colour = colornames.Orange
 	} else {
 		colour = colornames.Green
 	}
@@ -149,7 +168,7 @@ func (a *Agent) Draw(screen *ebiten.Image) {
 
 }
 
-func checkDirection(w *World, x int, y int) {
+func checkDirection(w *World, x int, y int, c *Counts) {
 	if x < 0 || x >= w.w || y < 0 || y >= w.h {
 		return
 	}
@@ -160,9 +179,11 @@ func checkDirection(w *World, x int, y int) {
 	}
 	shouldInfect := rng.Float64() < w.infectionChance
 	if shouldInfect {
-		target.state = StateInfected
+		target.state = StateInfectious
 		target.infectionTimer = w.infectionDuration
-		w.infectedCountNow++
+		target.contagiousTimer = contagiousTimer
+		c.Infectious++
+		c.Healthy--
 	}
 }
 

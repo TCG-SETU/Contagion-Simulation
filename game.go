@@ -41,32 +41,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		t.Draw(screen)
 	}
 
-	var c = Counts{}
+	var c = g.world.agentStatsCount
 
 	for _, agent := range g.world.Agents() {
 		if !(g.world.hideDead && agent.state == StateDead) {
 			agent.Draw(screen)
 		}
-
-		switch agent.state {
-		case StateHealthy:
-			c.Healthy++
-		case StateInfected:
-			c.Infected++
-		case StateDead:
-			c.Dead++
-		case StateImmune:
-			c.Immune++
-		default:
-			panic("unhandled default case")
-		}
 	}
 
 	status := ""
 	switch {
-	case c.Infected == 0:
+	case c.Infected == 0 && c.Infectious == 0:
 		status = "\nEveryone is healthy!"
-	case c.Healthy == 0 && c.Dead == 0:
+	case c.Healthy == 0 && c.Immune == 0:
 		status = "\nEveryone is infected!"
 	}
 
@@ -80,12 +67,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			"Iteration: %d\n"+
 			"Healthy:  %d\n"+
 			"Infected: %d\n"+
+			"Infectious: %d\n"+
 			"Immune:   %d\n"+
 			"Dead:     %d\n"+
 			"Total:    %d%s",
 		ebiten.ActualTPS(), ebiten.ActualFPS(), paused,
-		g.world.iteration, c.Healthy, c.Infected, c.Immune, c.Dead,
-		c.Healthy+c.Infected+c.Dead+c.Immune, status,
+		g.world.iteration, c.Healthy, c.Infected, c.Infectious, c.Immune, c.Dead,
+		c.Total(), status,
 	))
 }
 
