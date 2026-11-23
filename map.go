@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	"os"
 
@@ -16,7 +17,7 @@ type Map struct {
 	imgMask   image.Image
 }
 
-func (m *Map) Draw(screen *ebiten.Image) {
+func (m *Map) Draw(screen *ebiten.Image, cam *Camera, worldW, worldH int) {
 	if m.ebitenImg == nil {
 		var err error
 		// N.B. Image decoders must be imported, i.e. _ "image/jpeg" in the import section
@@ -26,8 +27,19 @@ func (m *Map) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	imgOptions := ebiten.DrawImageOptions{}
+	imgW, imgH := m.ebitenImg.Bounds().Dx(), m.ebitenImg.Bounds().Dy()
 
+	imgOptions := ebiten.DrawImageOptions{}
+	// stretch image
+	imgOptions.GeoM.Scale(float64(worldW)/float64(imgW), float64(worldH)/float64(imgH))
+	// translate to screen
+	imgOptions.GeoM.Scale(float64(cam.Zoom), float64(cam.Zoom))
+	sx, sy := cam.WorldToScreen(0, 0)
+	imgOptions.GeoM.Translate(float64(sx), float64(sy))
+	// smooth when zoomed out
+	imgOptions.Filter = ebiten.FilterLinear
+	// dim the map to make out agents better
+	imgOptions.ColorScale.SetWithColor(color.RGBA{R: 100, G: 100, B: 100, A: 200})
 	screen.DrawImage(m.ebitenImg, &imgOptions)
 }
 
@@ -56,7 +68,7 @@ func (m *Map) IsSafe(x, y int) bool {
 
 	if r, g, b, _ := m.imgMask.At(x, y).RGBA(); r == 0 && g == 0 && b == 0 {
 		return false
-	} else {
-		return true
 	}
+
+	return true
 }

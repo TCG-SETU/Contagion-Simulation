@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 type GameState int
@@ -24,25 +25,31 @@ const (
 )
 
 const (
-	screenWidth  = 1000
-	screenHeight = 1000
+	screenWidth  = 400
+	screenHeight = 400
 )
 
 type Game struct {
 	world *World
+	cam   *Camera
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	screen.Fill(color.RGBA{R: 46, G: 7, B: 29, A: 0xFF})
 
-	g.world.m.Draw(screen)
+	x0, y0 := g.cam.WorldToScreen(0, 0)
+	vector.StrokeRect(screen, x0, y0,
+		float32(g.world.w)*g.cam.Zoom, float32(g.world.h)*g.cam.Zoom,
+		1, color.RGBA{R: 80, G: 80, B: 80, A: 255}, false)
+
+	g.world.m.Draw(screen, g.cam, g.world.w, g.world.h)
 
 	var c = Counts{}
 
 	for _, agent := range g.world.Agents() {
 		if !(g.world.hideDead && agent.state == StateDead) {
-			agent.Draw(screen)
+			agent.Draw(screen, g.cam)
 		}
 
 		switch agent.state {
@@ -92,6 +99,8 @@ func (g *Game) Layout(int, int) (int, int) {
 
 func (g *Game) Update() error {
 
+	g.cam.Update(g.world.w, g.world.h)
+
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		if g.world.gameState == simulationState {
 			g.world.gameState = pauseState
@@ -118,6 +127,7 @@ func (g *Game) Update() error {
 func newGame(cfg Config) *Game {
 	g := Game{}
 	g.world = New(cfg)
+	g.cam = NewCamera(g.world.w, g.world.h)
 	return &g
 }
 
