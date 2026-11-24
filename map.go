@@ -10,6 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
+// Map stores the background map image and its collision mask.
+// the mask determines which grid positions are safe for agents to occupy.
 type Map struct {
 	Image, ImageMask string
 	ebitenImg        *ebiten.Image
@@ -18,6 +20,9 @@ type Map struct {
 	mw, mh           int
 }
 
+// Draw loads and renders the background map onto the simulation screen.
+// It scales the image to match the world dimensions, applies the camera's
+// zoom and position, and dims the images to make agents easier to see.
 func (m *Map) Draw(screen *ebiten.Image, cam *Camera, worldW, worldH int) {
 	if m.ebitenImg == nil {
 		var err error
@@ -44,11 +49,18 @@ func (m *Map) Draw(screen *ebiten.Image, cam *Camera, worldW, worldH int) {
 	screen.DrawImage(m.ebitenImg, &imgOptions)
 }
 
+// LoadMask loads and processes the map's collision mask image.
+// Tt creates a boolean array indicating which grid positions are safe.
+// Black pixels represent unsafe positions while other pixels are considered safe.
 func (m *Map) LoadMask() {
+
+	// Open the collision mask image file
 	mapImageMaskFile, err := os.Open(m.ImageMask)
 	if err != nil {
 		panic(err)
 	}
+
+	// Close the file after processing image.
 	defer func(mapImageMaskFile *os.File) {
 		err := mapImageMaskFile.Close()
 		if err != nil {
@@ -56,11 +68,17 @@ func (m *Map) LoadMask() {
 		}
 	}(mapImageMaskFile)
 
+	// Decode the image into image.Image.
 	m.imgMask, _, err = image.Decode(mapImageMaskFile)
 	// Save safe squares at load-time to prevent RGBA.at() overhead
 	bounds := m.imgMask.Bounds()
 	m.mw, m.mh = bounds.Dx(), bounds.Dy()
+
+	// create an array to store the safety status of each pixel.
 	m.safe = make([]bool, m.mw*m.mh)
+
+	// Process each pixel in the mask.
+	// Safe positions are stored as true and black positions as false.
 	for y := 0; y < m.mh; y++ {
 		for x := 0; x < m.mw; x++ {
 			r, g, b, _ := m.imgMask.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
@@ -68,11 +86,15 @@ func (m *Map) LoadMask() {
 		}
 	}
 
+	// Stop execution if the image could not be decoded
 	if err != nil {
 		panic(err)
 	}
 }
 
+// IsSafe checks whether a specified grid position is safe according to the collision mask.
+// It returns true if the position is safe and false if it is unsafe.
+// The function panics if the supplied coordinates are outside the mask's boundaries.
 func (m *Map) IsSafe(x, y int) bool {
 
 	if x < 0 || x >= m.mw {

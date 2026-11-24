@@ -2,17 +2,27 @@ package main
 
 import "github.com/hajimehoshi/ebiten/v2"
 
+// Camera zoom and movement constants.
 const (
+	// minZoom defines the minimum camera zoom level.
 	minZoom = 0.25
+	// maxZoom defines the maximum camera zoom level.
 	maxZoom = 10.0
-	keyPan  = 8.0
+	// keyPan Defines the camera movement speed when using the arrow keys.
+	keyPan = 8.0
 )
 
+// Camera controls the visible area of the simulation world.
+// It stores the world coordinates displayed at the top-left of the screen.
+// and the current zoom level.
 type Camera struct {
 	X, Y float32 // world coordinate shown at the top-left of the screen
 	Zoom float32 // screen pixels per world cell
 }
 
+// NewCamera creates and returns a new camera for the specified world dimensions.
+// It calculates an initial zoom level that allows the entire world to fit
+// within the screen, then adjusts the camera boundaries.
 func NewCamera(worldW, worldH int) *Camera {
 	z := min(float32(screenWidth)/float32(worldW), float32(screenHeight)/float32(worldH))
 	c := &Camera{Zoom: z}
