@@ -11,10 +11,11 @@ import (
 )
 
 type Map struct {
-	Image     string
-	ImageMask string
-	ebitenImg *ebiten.Image
-	imgMask   image.Image
+	Image, ImageMask string
+	ebitenImg        *ebiten.Image
+	imgMask          image.Image
+	safe             []bool
+	mw, mh           int
 }
 
 func (m *Map) Draw(screen *ebiten.Image, cam *Camera, worldW, worldH int) {
@@ -48,27 +49,38 @@ func (m *Map) LoadMask() {
 	if err != nil {
 		panic(err)
 	}
-	defer mapImageMaskFile.Close()
+	defer func(mapImageMaskFile *os.File) {
+		err := mapImageMaskFile.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(mapImageMaskFile)
 
 	m.imgMask, _, err = image.Decode(mapImageMaskFile)
+	// Save safe squares at load-time to prevent RGBA.at() overhead
+	bounds := m.imgMask.Bounds()
+	m.mw, m.mh = bounds.Dx(), bounds.Dy()
+	m.safe = make([]bool, m.mw*m.mh)
+	for y := 0; y < m.mh; y++ {
+		for x := 0; x < m.mw; x++ {
+			r, g, b, _ := m.imgMask.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
+			m.safe[y*m.mw+x] = !(r == 0 && g == 0 && b == 0)
+		}
+	}
+
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (m *Map) IsSafe(x, y int) bool {
-	bounds := m.imgMask.Bounds()
 
-	if x < 0 || x >= bounds.Dx() {
+	if x < 0 || x >= m.mw {
 		panic("x is out of bounds")
 	}
-	if y < 0 || y >= bounds.Dy() {
+	if y < 0 || y >= m.mh {
 		panic("y is out of bounds")
 	}
 
-	if r, g, b, _ := m.imgMask.At(x, y).RGBA(); r == 0 && g == 0 && b == 0 {
-		return false
-	}
-
-	return true
+	return m.safe[y*m.mw+x]
 }
