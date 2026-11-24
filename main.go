@@ -21,11 +21,11 @@ func main() {
 	cfg := Config{
 		Width:             1000,
 		Height:            1000,
-		Agents:            1000,
+		Agents:            10000,
 		InitialInfected:   20,
 		InfectionChance:   0.3,
 		DeathChance:       0.00001,
-		InfectionDuration: 200,
+		InfectionDuration: 300,
 		Seed:              *seed,
 		HideDead:          *hideDead,
 	}

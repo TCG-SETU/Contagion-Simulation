@@ -10,6 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
+var directions = [8][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}}
+
 type Map struct {
 	Image, ImageMask string
 	ebitenImg        *ebiten.Image
@@ -83,4 +85,44 @@ func (m *Map) IsSafe(x, y int) bool {
 	}
 
 	return m.safe[y*m.mw+x]
+}
+
+// Used to prevent invalid paths when building the Flow Fields
+func (m *Map) canStep(x, y, dx, dy int) bool {
+	if !m.IsSafe(x+dx, y+dy) {
+		return false
+	}
+	if dx != 0 && dy != 0 { // no corner cutting
+		return m.IsSafe(x+dx, y) && m.IsSafe(x, y+dy)
+	}
+	return true
+}
+
+func (m *Map) BuildFlowField(cx, cy int) []int32 {
+	distances := make([]int32, m.mw*m.mh)
+	for i := range distances {
+		distances[i] = -1
+	}
+
+	// BFS (Breadth First Search) each tile to the town center (cx, cy)
+	queue := make([]int32, 0, m.mw*m.mh)
+	start := cy*m.mw + cx
+	distances[start] = 0
+	queue = append(queue, int32(start))
+
+	for head := 0; head < len(queue); head++ {
+		current := int(queue[head])
+		x, y := current%m.mw, current/m.mw
+		for _, d := range directions {
+			if !m.canStep(x, y, d[0], d[1]) {
+				continue
+			}
+			ni := (y+d[1])*m.mw + (x + d[0])
+			if distances[ni] == -1 {
+				distances[ni] = distances[current] + 1
+				queue = append(queue, int32(ni))
+			}
+		}
+	}
+	return distances
 }

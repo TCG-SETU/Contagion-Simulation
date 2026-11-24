@@ -54,11 +54,16 @@ func New(cfg Config) *World {
 	w.m.LoadMask()
 
 	w.towns = [townCount]Town{
-		{146 + 44, 367 + 44, 44},
-		{409 + 58, 531 + 58, 58},
-		{285 + 50, 774 + 50, 50},
-		{726 + 44, 642 + 44, 44},
-		{684 + 45, 172 + 45, 45}}
+		{cx: 146 + 44, cy: 367 + 44, radius: 44},
+		{cx: 409 + 58, cy: 531 + 58, radius: 58},
+		{cx: 285 + 50, cy: 774 + 50, radius: 50},
+		{cx: 726 + 44, cy: 642 + 44, radius: 44},
+		{cx: 684 + 45, cy: 172 + 45, radius: 45}}
+
+	// Build each town's Flow field
+	for i, t := range w.towns {
+		w.towns[i].flowField = w.m.BuildFlowField(t.cx, t.cy)
+	}
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead

@@ -85,20 +85,60 @@ func (a *Agent) updateTravel(w *World) {
 	}
 }
 
+func (a *Agent) flowStep(w *World, town int) (int, int) {
+	field := w.towns[town].flowField
+	current := field[a.y*w.m.mw+a.x]
+	// at the target or unreachable cell, skip
+	if current < 0 {
+		return 0, 0
+	}
+	bestDX, bestDY := 0, 0
+	best := current // best direction
+
+	for _, d := range directions {
+		if !w.m.canStep(a.x, a.y, d[0], d[1]) {
+			continue
+		}
+		nx, ny := a.x+d[0], a.y+d[1]
+		nd := field[ny*w.m.mw+nx]
+
+		// invalid / occupied square
+		if nd < 0 || w.grid[nx][ny] != nil {
+			continue
+		}
+		// compare with previous best dir
+		if nd < best || (nd == best && best < current && rng.Intn(2) == 0) {
+			best, bestDX, bestDY = nd, d[0], d[1]
+		}
+	}
+	return bestDX, bestDY
+}
+
 func (a *Agent) wander(w *World) (int, int) {
-	t := a.anchor(w)
+
 	dx, dy := rng.Intn(3)-1, rng.Intn(3)-1
 
 	switch a.mode {
 	case Outbound, Returning:
 		if rng.Float64() < 0.8 {
-			dx = locationToDirection(t.cx, a.x, RIGHT, LEFT)
-			dy = locationToDirection(t.cy, a.y, DOWN, UP)
+			target := a.home
+			if a.mode == Outbound {
+				target = a.dest
+			}
+			if fx, fy := a.flowStep(w, target); fx != 0 || fy != 0 {
+				return fx, fy
+			}
 		}
 	default: // Local, Visiting
-		if !a.inTown(t) {
-			dx = locationToDirection(t.cx, a.x, RIGHT, LEFT)
-			dy = locationToDirection(t.cy, a.y, DOWN, UP)
+		townIdx := a.anchor(w)
+		if !a.inTown(townIdx) {
+			town := a.home
+			if a.mode == Visiting {
+				town = a.dest
+			}
+			if fx, fy := a.flowStep(w, town); fx != 0 || fy != 0 {
+				return fx, fy
+			}
 		}
 	}
 	return dx, dy
@@ -163,7 +203,7 @@ func (a *Agent) Draw(screen *ebiten.Image, camera *Camera) {
 	} else if a.state == StateInfectious {
 		colour = colornames.Orange
 	} else {
-		colour = colornames.Green
+		colour = colornames.Lightgreen
 	}
 
 	sx, sy := camera.WorldToScreen(float32(a.x), float32(a.y))

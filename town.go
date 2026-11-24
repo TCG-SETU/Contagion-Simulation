@@ -7,7 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-var townColor = color.RGBA{R: 100, G: 100, B: 200, A: 60}
+var townColor = color.RGBA{R: 40, G: 40, B: 80, A: 10}
 
 // Town Constants
 const (
@@ -18,8 +18,9 @@ const (
 )
 
 type Town struct {
-	cx, cy int
-	radius float32
+	cx, cy    int
+	radius    float32
+	flowField []int32
 }
 
 func (t *Town) Draw(screen *ebiten.Image, camera *Camera) {
