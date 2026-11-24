@@ -25,7 +25,7 @@ type World struct {
 	deathChance       float64
 	hideDead          bool
 	gameState         GameState
-	towns             [5]Town
+	towns             [townCount]Town
 }
 
 func New(cfg Config) *World {
@@ -54,11 +54,15 @@ func New(cfg Config) *World {
 	w.m.LoadMask()
 
 	w.towns = [townCount]Town{
+		{cx: 255 + 53, cy: 165 + 53, radius: 53},
 		{cx: 146 + 44, cy: 367 + 44, radius: 44},
 		{cx: 409 + 58, cy: 531 + 58, radius: 58},
 		{cx: 285 + 50, cy: 774 + 50, radius: 50},
 		{cx: 726 + 44, cy: 642 + 44, radius: 44},
-		{cx: 684 + 45, cy: 172 + 45, radius: 45}}
+		{cx: 684 + 45, cy: 172 + 45, radius: 45},
+		{cx: 505 + 36, cy: 287 + 36, radius: 36},
+		{cx: 84 + 40, cy: 656 + 40, radius: 40},
+	}
 
 	// Build each town's Flow field
 	for i, t := range w.towns {

@@ -11,7 +11,7 @@ var townColor = color.RGBA{R: 40, G: 40, B: 80, A: 10}
 
 // Town Constants
 const (
-	townCount         = 5
+	townCount         = 8
 	travelChance      = .0005
 	stayDuration      = 100
 	infectedTravelBan = .05
