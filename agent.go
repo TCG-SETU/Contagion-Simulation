@@ -149,8 +149,10 @@ func (a *Agent) handleInfectionTimer(w *World, c *Counts) {
 	}
 }
 
-func (a *Agent) Draw(screen *ebiten.Image) {
-
+func (a *Agent) Draw(screen *ebiten.Image, camera *Camera) {
+	if !camera.Visible(float32(a.x), float32(a.y), 1) {
+		return
+	}
 	colour := color.RGBA{}
 	if a.state == StateInfected {
 		colour = colornames.Red
@@ -164,7 +166,9 @@ func (a *Agent) Draw(screen *ebiten.Image) {
 		colour = colornames.Green
 	}
 
-	vector.StrokeRect(screen, float32(a.x+gridOffset), float32(a.y+gridOffset), 1, 1, 1, colour, false)
+	sx, sy := camera.WorldToScreen(float32(a.x), float32(a.y))
+	size := max(camera.Zoom, 0.5) // never smaller than 1 pixel
+	vector.StrokeRect(screen, sx, sy, size, size, size, colour, false)
 
 }
 

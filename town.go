@@ -22,6 +22,7 @@ type Town struct {
 	radius float32
 }
 
-func (t *Town) Draw(screen *ebiten.Image) {
-	vector.FillCircle(screen, float32(t.cx+gridOffset), float32(t.cy+gridOffset), t.radius, townColor, false)
+func (t *Town) Draw(screen *ebiten.Image, camera *Camera) {
+	x, y := camera.WorldToScreen(float32(t.cx), float32(t.cy))
+	vector.FillCircle(screen, x, y, t.radius*camera.Zoom, townColor, false)
 }

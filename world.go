@@ -13,6 +13,7 @@ const contagiousTimer = 100
 type World struct {
 	grid              [][]*Agent
 	agents            []*Agent
+	m                 *Map
 	agentsCount       int
 	initialInfected   int
 	agentStatsCount   Counts
@@ -46,13 +47,18 @@ func New(cfg Config) *World {
 	}
 	w.grid = grid
 	agents := make([]*Agent, cfg.Agents)
+	w.m = &Map{
+		Image:     "images/Springfield_Island.jpg",
+		ImageMask: "images/Springfield_Island_mask.jpg",
+	}
+	w.m.LoadMask()
 
 	w.towns = [townCount]Town{
-		{70, 66, 40},
-		{155, 273, 37},
-		{406, 299, 55},
-		{340, 82, 40},
-		{214, 150, 48}}
+		{146 + 44, 367 + 44, 44},
+		{409 + 58, 531 + 58, 58},
+		{285 + 50, 774 + 50, 50},
+		{726 + 44, 642 + 44, 44},
+		{684 + 45, 172 + 45, 45}}
 
 	w.initialInfected = cfg.InitialInfected
 	w.hideDead = cfg.HideDead
@@ -90,7 +96,7 @@ func (w *World) spawnPos(t Town) (int, int) {
 	for {
 		x := t.cx + int(rng.NormFloat64()*sigma)
 		y := t.cy + int(rng.NormFloat64()*sigma)
-		if x >= 0 && x < w.w && y >= 0 && y < w.h && w.grid[x][y] == nil {
+		if x >= 0 && x < w.w && y >= 0 && y < w.h && w.grid[x][y] == nil && w.m.IsSafe(x, y) {
 			return x, y
 		}
 	}
@@ -113,6 +119,7 @@ func (w *World) Step() {
 
 		// Keep agent inside bounds
 		newX, newY = clampBorders(newX, newY, w.w, w.h)
+		newX, newY = clampToMap(w.m, oldX, oldY, newX, newY)
 
 		// Only move agent
 		if w.grid[newX][newY] == nil {
@@ -178,6 +185,26 @@ func clampBorders(x, y, w, h int) (int, int) {
 	x = clamp(x, 0, w-1)
 	y = clamp(y, 0, h-1)
 	return x, y
+}
+
+// clamps x and y to safe locations on the map
+func clampToMap(m *Map, oldX, oldY, newX, newY int) (int, int) {
+	if !m.IsSafe(oldX, oldY) {
+		panic("old x and y must be safe")
+	}
+
+	x := oldX
+	y := oldY
+	if m.IsSafe(newX, oldY) {
+		x = newX
+	}
+	if m.IsSafe(oldX, newY) {
+		y = newY
+	}
+	if m.IsSafe(x, y) {
+		return x, y
+	}
+	return oldX, oldY
 }
 
 func locationToDirection(a, b, positive, negative int) int {

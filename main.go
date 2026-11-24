@@ -19,8 +19,8 @@ func main() {
 	flag.Parse()
 
 	cfg := Config{
-		Width:             500,
-		Height:            400,
+		Width:             1000,
+		Height:            1000,
 		Agents:            1000,
 		InitialInfected:   20,
 		InfectionChance:   0.3,
@@ -38,7 +38,7 @@ func main() {
 
 	game := newGame(cfg)
 
-	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Contagion")
 
 	if err := ebiten.RunGame(game); err != nil {
