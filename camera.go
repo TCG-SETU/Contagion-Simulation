@@ -2,27 +2,19 @@ package main
 
 import "github.com/hajimehoshi/ebiten/v2"
 
-// Camera zoom and movement constants.
 const (
-	// minZoom defines the minimum camera zoom level.
 	minZoom = 0.25
-	// maxZoom defines the maximum camera zoom level.
 	maxZoom = 10.0
-	// keyPan Defines the camera movement speed when using the arrow keys.
 	keyPan = 8.0
 )
 
-// Camera controls the visible area of the simulation world.
-// It stores the world coordinates displayed at the top-left of the screen.
-// and the current zoom level.
 type Camera struct {
-	X, Y float32 // world coordinate shown at the top-left of the screen
-	Zoom float32 // screen pixels per world cell
+	X, Y float32 
+	Zoom float32 
 }
 
-// NewCamera creates and returns a new camera for the specified world dimensions.
-// It calculates an initial zoom level that allows the entire world to fit
-// within the screen, then adjusts the camera boundaries.
+
+// NewCamera chooses the largest zoom that fits the world on screen initially, giving the player a useful overview without manual adjustment.
 func NewCamera(worldW, worldH int) *Camera {
 	z := min(float32(screenWidth)/float32(worldW), float32(screenHeight)/float32(worldH))
 	c := &Camera{Zoom: z}
@@ -30,20 +22,19 @@ func NewCamera(worldW, worldH int) *Camera {
 	return c
 }
 
-// WorldToScreen converts a (x,y) point on the grid to the camera screen
+// WorldToScreen centralises the coordinate conversion so drawing code stays consistent with camera position and zoom.
 func (c *Camera) WorldToScreen(wx, wy float32) (float32, float32) {
 	return (wx - c.X) * c.Zoom, (wy - c.Y) * c.Zoom
 }
 
-// Visible reports whether a world-space circle/rect of the given size is on screen.
-// This avoids rendering objects that are off-screen
+// Visible checks screen bounds before drawing so off-screen objects can be skipped.
 func (c *Camera) Visible(wx, wy, size float32) bool {
 	sx, sy := (wx-c.X)*c.Zoom, (wy-c.Y)*c.Zoom
 	s := size * c.Zoom
 	return sx+s >= 0 && sy+s >= 0 && sx-s <= screenWidth && sy-s <= screenHeight
 }
 
-// Update Handles camera movement through the arrow keys and along with camera zooming
+// Update applies keyboard movement and zoom, then clamps the camera so the view cannot drift beyond the world.
 func (c *Camera) Update(worldW, worldH int) {
 	step := keyPan / c.Zoom
 
@@ -69,7 +60,7 @@ func (c *Camera) Update(worldW, worldH int) {
 	c.clamp(worldW, worldH)
 }
 
-// clamp keeps the view inside the world. If the world is smaller than the screen, it centres the world.
+// clamp keeps camera coordinates within valid limits so the visible area remains aligned with the world.
 func (c *Camera) clamp(worldW, worldH int) {
 	viewW := float32(screenWidth) / c.Zoom
 	viewH := float32(screenHeight) / c.Zoom
